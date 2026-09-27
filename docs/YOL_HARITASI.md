@@ -7,9 +7,15 @@ geçmeden önce kontrol edilecek kriterdir.
 Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
 
 ## Temel kurallar
-- **Zamana göre bölme.** Eğitim: 2019-01 → 2020-03, doğrulama: 2020-04 → 2020-06-20,
-  test: 2020-06-21 → 2020-12-31 (veri setinin `fraudTest` dosyası). Rastgele bölme kullanılmaz.
-  Test kümesine yalnızca Faz 3.5'te, bir kez bakılır.
+- **Zamana göre bölme.** Eğitim: 2019-01-01 → 2020-03-31, doğrulama: 2020-04-01 →
+  2020-06-21 12:13, test: 2020-06-21 12:14 → 2020-12-31 (veri setinin `fraudTest` dosyası;
+  sınırlar `config.py`'de). Rastgele bölme kullanılmaz. Test kümesine yalnızca Faz 3.5'te,
+  bir kez bakılır.
+  - İstisna (kayıt için): Faz 0.2, 1.1 ve 1.2'de test dosyasının yalnızca **betimleyici**
+    istatistikleri görüldü: satır sayısı, genel ve aylık dolandırıcılık oranı, kart örtüşmesi.
+    Bunlardan çıkan tek karar, eşiğin genel orana değil maliyete göre seçilmesi ve test
+    sonuçlarının aylık da raporlanmasıdır. Hiçbir özellik, model ya da eşik değeri test
+    verisine göre ayarlanmadı. EDA (1.3) yalnızca eğitim bölmesini kullandı.
 - **Özellikler yalnızca geçmişten hesaplanır.** Geçmiş etiketler ("kart daha önce dolandırıldı
   mı") kullanılmaz, çünkü gerçekte etiketler gecikmeli gelir.
 - **Kişisel veri modele girmez:** ad, soyad, sokak, işlem numarası.
@@ -58,6 +64,8 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
       (b) "Kart daha önce dolandırıldı mı" özelliği simülatörde iki yönde de sızıntı yaratır
       (patlama sonrası kart bir daha dolandırılmıyor), bu yüzden kullanılmayacak.
       (c) Son 1 saat / 24 saat pencereli hız özellikleri patlamayı yakalamak için kritik.
+      *Düzeltme (1.3):* EDA'ya göre işlem **sayısı** neredeyse hiç ayırt etmiyor; kritik olan
+      pencere içindeki **toplam tutar** ve tutarın kartın geçmişine oranı.
       (d) Faz 2.2'de işlem bazlı metriklere ek olarak **patlama bazlı** metrik de raporlanacak:
       patlama yakalandı mı, kaçıncı işlemde yakalandı.
     - Test kartlarının %98,3'ü eğitimde de var; satıcı ve kategorilerin tamamı ortak. Soğuk
