@@ -1,4 +1,4 @@
-.PHONY: install data quality test lint
+.PHONY: install data quality process test lint
 
 install:
 	pip install -e ".[dev,ml,api,ui]"
@@ -8,6 +8,9 @@ data:
 
 quality:
 	python -m card_fraud_detection.data.quality
+
+process:
+	python -m card_fraud_detection.data.clean
 
 test:
 	pytest -q

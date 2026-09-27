@@ -66,10 +66,28 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
       (Aralık 2020'de %0,18). Testin genel oranının (%0,39) düşük olmasının bir nedeni bu. Eşik,
       oran yerine maliyet ve alarm bütçesiyle seçilecek; test sonuçları aylık olarak da raporlanacak.
     - En genç kart sahibi 14 yaşında. Sentetik veri olduğu için dokunulmayacak.
-- [ ] **1.2 Temizlik**
+- [x] **1.2 Temizlik**
   - Çıktı: `data/processed/transactions.parquet` (kişisel veri sütunları atılmış, zamana göre sıralı,
     `split` sütunu: train/valid/test)
   - Bitti sayılır: kart başına zaman sıralı, bölmeler çakışmıyor (testli)
+  - Sonuç: `make process` (~7 sn) → 1.852.394 satır, 19 sütun; satır kaybı yok.
+
+    | bölme | dönem | işlem | dolandırıcılık | oran | kart |
+    |---|---|---|---|---|---|
+    | train | 2019-01-01 → 2020-03-31 | 1.097.693 | 6.343 | %0,58 | 968 |
+    | valid | 2020-04-01 → 2020-06-21 12:13 | 198.982 | 1.163 | %0,58 | 923 |
+    | test | 2020-06-21 12:14 → 2020-12-31 | 555.719 | 2.145 | %0,39 | 924 |
+
+  - Düzeltme: `TEST_START` başta `2020-06-21` (gün başı) idi. Eğitim dosyası o gün 12:13'e
+    kadar sürdüğü için sabahki işlemler teste kayacaktı. Sınır, iki dosyanın arasına düşen
+    `2020-06-21 12:14:00` yapıldı. `clean` artık test bölmesinin `fraudTest` dosyasıyla birebir
+    örtüştüğünü doğruluyor, örtüşmezse hata veriyor.
+  - `validate`: atılan sütunlar gerçekten yok, `fraud_` öneki kalmadı, tablo zamana göre sıralı
+    (bu, kart içi sırayı da garanti eder), `tx_id` benzersiz, boş değer yok, bölmeler zamanda
+    çakışmıyor. Kurallardan biri bozulursa dosya yazılmıyor.
+  - Not: 7 kartın dolandırıcılık patlaması bir bölme sınırına denk geliyor (ör. 9 işlem train,
+    3 işlem valid). Geçmiş etiketler özellik olarak kullanılmadığı için sızıntı yaratmıyor;
+    gerçekte de sınırda başlayan bir patlama böyle görünür. Dokunulmadı.
 - [ ] **1.3 EDA notebook'u** (`notebooks/01_eda.ipynb`)
   - Çıktı: kategori, saat ve tutara göre dolandırıcılık oranı, kartta dolandırıcılık patlamaları,
     müşteri–satıcı mesafesi. Grafikler `reports/figures/` altında, bulgular README'de.
