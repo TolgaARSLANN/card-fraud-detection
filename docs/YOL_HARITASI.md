@@ -88,18 +88,40 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
   - Not: 7 kartın dolandırıcılık patlaması bir bölme sınırına denk geliyor (ör. 9 işlem train,
     3 işlem valid). Geçmiş etiketler özellik olarak kullanılmadığı için sızıntı yaratmıyor;
     gerçekte de sınırda başlayan bir patlama böyle görünür. Dokunulmadı.
-- [ ] **1.3 EDA notebook'u** (`notebooks/01_eda.ipynb`)
+- [x] **1.3 EDA notebook'u** (`notebooks/01_eda.ipynb`)
   - Çıktı: kategori, saat ve tutara göre dolandırıcılık oranı, kartta dolandırıcılık patlamaları,
     müşteri–satıcı mesafesi. Grafikler `reports/figures/` altında, bulgular README'de.
+  - Sonuç: 7 bölüm ve özet tablo; 7 grafik `reports/figures/0*.png`. Yeniden üretmek için
+    `make eda` (~20 sn). Analiz **yalnızca eğitim bölmesiyle** yapıldı; doğrulama ve test
+    dönemlerine bakılmadı.
+  - Sonraki fazlara aktarılan kararlar (gerekçeler notebook'un 7. bölümünde):
+    - Tutar en güçlü tekil sinyal, ama anlamı kategoriye göre tersine dönüyor (çevrim içi
+      alışverişte dolandırıcılık ~120 kat büyük, akaryakıtta ~6 kat küçük). → "Tutar / kategori
+      medyanı" özelliği eklendi; medyanlar yalnızca eğitimden hesaplanacak.
+    - Gece saatleri işlemlerin %23,5'i, dolandırıcılığın %84,7'si. → Saat ve gece bayrağı.
+    - Patlamayı işlem **sayısı** değil **tutar** ele veriyor: 24 saatlik işlem sayısının medyanı
+      iki sınıfta da 4, 24 saatlik tutar ise $1.687'ye $172. Tutarı kartın geçmiş ortalamasının
+      3 katını aşan işlemler, işlemlerin %4'ü ama dolandırıcılığın %65'i.
+    - Patlamanın ilk işleminde kart sakin (24 saatte $39), ama tutar oranı zaten 5,1. → 2.2'deki
+      patlama bazlı metrik, erken yakalamayı ölçmek için gerekli.
+    - Müşteri–satıcı mesafesi iki sınıfta aynı dağılımda: simülatör satıcı konumunu rastgele
+      üretiyor. → Mesafe ve hız özellikleri **plandan çıkarıldı**.
+    - Demografik sinyal zayıf (yaşa göre %0,43–0,89). Yaş ve cinsiyet korunan özellikler olduğu
+      için ana model bunları **kullanmayacak**; Faz 3'te katkıları ayrı bir karşılaştırmayla ölçülecek.
+    - Simülatör kalıntısı: dolandırıcılıkta en yüksek tutar $1.372, normal işlemlerde $28.948.
+      README'de sınırlama olarak belirtilecek.
 
 ## FAZ 2: Özellikler ve Referans Modeller · ~1 hafta
 
 - [ ] **2.1 Özellikler** (`features/build.py`)
-  - İşlem: tutar, log tutar, kategori, saat, haftanın günü, gece bayrağı
-  - Kart hızı: son 1 sa / 24 sa / 7 gündeki işlem sayısı ve tutar toplamı, önceki işlemden bu yana
-    geçen süre, tutarın kart geçmişine göre z-skoru, kategoride/satıcıda ilk işlem mi
-  - Konum: müşteri–satıcı mesafesi, önceki işleme göre hız (km/sa)
-  - Demografi: yaş, cinsiyet, şehir nüfusu
+  - İşlem: tutar, log tutar, kategori, saat, haftanın günü, gece bayrağı, tutar / kategori
+    medyanı (medyanlar yalnızca eğitim bölmesinden)
+  - Kart geçmişi: son 1 sa / 24 sa / 7 gündeki işlem sayısı ve tutar toplamı, önceki işlemden
+    bu yana geçen süre, tutarın kartın geçmiş ortalamasına oranı ve z-skoru, kategoride/satıcıda
+    ilk işlem mi
+  - ~~Konum: müşteri–satıcı mesafesi, önceki işleme göre hız~~: EDA §5'te sinyal çıkmadı.
+  - Demografi (yaş, cinsiyet): ana modelde yok; Faz 3'te ayrı bir karşılaştırma modelinde
+    denenecek. Şehir nüfusu sinyal taşımadığı için kullanılmayacak.
   - Bitti sayılır: sızıntı testi, yani t anından sonraki satırlar değiştirildiğinde t'deki özellikler değişmiyor
 - [ ] **2.2 Metrikler** (`evaluation/metrics.py`)
   - PR-AUC, ROC-AUC, sabit precision'da recall, alarm bütçesine göre (top-k) yakalama,
