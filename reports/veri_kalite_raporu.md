@@ -1,6 +1,6 @@
 # Veri Kalite Raporu
 
-_Oluşturulma: 2026-09-27 · Kaynak: `data/raw/{train,test}.parquet` (Kaggle, Sparkov) · Üreten: `python -m sahtekarlik.data.quality`_
+_Oluşturulma: 2026-09-27 · Kaynak: `data/raw/{train,test}.parquet` (Kaggle, Sparkov) · Üreten: `python -m card_fraud_detection.data.quality`_
 
 ## 1. Kapsam ve sınıf oranı
 

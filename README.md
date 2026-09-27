@@ -1,4 +1,6 @@
-# 💳 Sahtekarlık: Finansal Dolandırıcılık Tespit Sistemi
+# 💳 Card Fraud Detection: Kart Dolandırıcılığı Tespit Sistemi
+
+[![CI](https://github.com/TolgaARSLANN/card-fraud-detection/actions/workflows/ci.yml/badge.svg)](https://github.com/TolgaARSLANN/card-fraud-detection/actions/workflows/ci.yml)
 
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 

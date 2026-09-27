@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "sahtekarlik"
+name = "card-fraud-detection"
 version = "0.1.0"
 description = "Kart işlemlerinde dolandırıcılık tespiti: dengesiz veride uçtan uca makine öğrenmesi"
 readme = "README.md"

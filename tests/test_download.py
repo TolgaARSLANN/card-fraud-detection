@@ -1,7 +1,7 @@
 import pandas as pd
 
-from sahtekarlik.config import TARGET, TIME_COL
-from sahtekarlik.data.download import read_raw_csv
+from card_fraud_detection.config import TARGET, TIME_COL
+from card_fraud_detection.data.download import read_raw_csv
 
 CSV = """\
 ,trans_date_trans_time,cc_num,merchant,category,amt,first,last,gender,street,city,state,zip,lat,long,city_pop,job,dob,trans_num,unix_time,merch_lat,merch_long,is_fraud

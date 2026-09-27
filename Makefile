@@ -4,10 +4,10 @@ install:
 	pip install -e ".[dev,ml,api,ui]"
 
 data:
-	python -m sahtekarlik.data.download
+	python -m card_fraud_detection.data.download
 
 quality:
-	python -m sahtekarlik.data.quality
+	python -m card_fraud_detection.data.quality
 
 test:
 	pytest -q

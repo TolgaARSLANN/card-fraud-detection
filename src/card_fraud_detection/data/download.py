@@ -1,8 +1,8 @@
 """Kaggle'dan Sparkov kart işlemi veri setini indirir ve parquet'e çevirir.
 
 Kullanım:
-    python -m sahtekarlik.data.download           # dosyalar varsa atlar
-    python -m sahtekarlik.data.download --force
+    python -m card_fraud_detection.data.download           # dosyalar varsa atlar
+    python -m card_fraud_detection.data.download --force
 
 Çıktı: data/raw/train.parquet ve data/raw/test.parquet. Veri seti herkese açık olduğu için
 kagglehub çoğu zaman belirteç (token) olmadan indirir. İstenirse ~/.kaggle/kaggle.json
@@ -16,7 +16,14 @@ from pathlib import Path
 
 import pandas as pd
 
-from sahtekarlik.config import CARD_COL, KAGGLE_DATASET, RAW_DIR, RAW_FILES, TARGET, TIME_COL
+from card_fraud_detection.config import (
+    CARD_COL,
+    KAGGLE_DATASET,
+    RAW_DIR,
+    RAW_FILES,
+    TARGET,
+    TIME_COL,
+)
 
 
 def read_raw_csv(path: Path) -> pd.DataFrame:

@@ -1,4 +1,4 @@
-# Sahtekarlık: Faz Planı
+# Card Fraud Detection: Faz Planı
 
 Her alt faz tek başına tamamlanabilir, küçük bir iştir. Alt faz bitince kutucuğu işaretle ve
 ayrı bir commit at. **Çıktı** o alt fazda üretilecek somut şeydir, **Bitti sayılır** ise
@@ -22,9 +22,9 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
 - [x] **0.1 Repo ve araçlar**
   - Çıktı: `pyproject.toml`, `Makefile`, ruff, pytest, GitHub Actions CI, ilk commit
   - Bitti sayılır: `make lint` ve `make test` temiz, CI yeşil
-  - Sonuç: [github.com/TolgaARSLANN/sahtekarlik](https://github.com/TolgaARSLANN/sahtekarlik), CI yeşil.
+  - Sonuç: [github.com/TolgaARSLANN/card-fraud-detection](https://github.com/TolgaARSLANN/card-fraud-detection), CI yeşil.
 - [x] **0.2 Veri indirme**
-  - Çıktı: `python -m sahtekarlik.data.download` → `data/raw/{train,test}.parquet`
+  - Çıktı: `python -m card_fraud_detection.data.download` → `data/raw/{train,test}.parquet`
   - Bitti sayılır: satır sayıları (1.296.675 / 555.719) ve dolandırıcılık oranları doğrulandı
   - Sonuç: Eğitim dosyasında 1.296.675 satır (%0,58 dolandırıcılık), test dosyasında 555.719 satır
     (%0,39). Test dönemindeki oran daha düşük, bu yüzden eşik doğrulama kümesinde seçilmeli ve

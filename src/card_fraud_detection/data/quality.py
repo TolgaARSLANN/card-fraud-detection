@@ -1,7 +1,7 @@
 """Ham veri için kalite raporu üretir.
 
 Kullanım:
-    python -m sahtekarlik.data.quality      # -> reports/veri_kalite_raporu.md
+    python -m card_fraud_detection.data.quality      # -> reports/veri_kalite_raporu.md
 
 Kontroller: kapsam ve sınıf oranı, eksik değer, tekrarlar, değer aralıkları, zaman damgası
 tutarlılığı (unix_time), kart bazında sabit kalması gereken alanlar, kart başına işlem sayısı,
@@ -14,8 +14,8 @@ from datetime import date
 
 import pandas as pd
 
-from sahtekarlik.config import CARD_COL, RAW_DIR, RAW_FILES, REPORTS_DIR, TARGET, TIME_COL
-from sahtekarlik.reporting import to_markdown as _md
+from card_fraud_detection.config import CARD_COL, RAW_DIR, RAW_FILES, REPORTS_DIR, TARGET, TIME_COL
+from card_fraud_detection.reporting import to_markdown as _md
 
 REPORT_PATH = REPORTS_DIR / "veri_kalite_raporu.md"
 
@@ -116,7 +116,7 @@ def build_report(frames: dict[str, pd.DataFrame]) -> str:
         "# Veri Kalite Raporu",
         "",
         f"_Oluşturulma: {date.today().isoformat()} · Kaynak: `data/raw/{{train,test}}.parquet` "
-        "(Kaggle, Sparkov) · Üreten: `python -m sahtekarlik.data.quality`_",
+        "(Kaggle, Sparkov) · Üreten: `python -m card_fraud_detection.data.quality`_",
         "",
     ]
 

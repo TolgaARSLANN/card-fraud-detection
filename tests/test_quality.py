@@ -1,6 +1,6 @@
 import pandas as pd
 
-from sahtekarlik.data.quality import (
+from card_fraud_detection.data.quality import (
     duplicates,
     fraud_bursts,
     inconsistent_card_attributes,
