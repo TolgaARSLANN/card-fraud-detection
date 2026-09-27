@@ -22,7 +22,7 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
 - [x] **0.1 Repo ve araçlar**
   - Çıktı: `pyproject.toml`, `Makefile`, ruff, pytest, GitHub Actions CI, ilk commit
   - Bitti sayılır: `make lint` ve `make test` temiz, CI yeşil
-  - Not: GitHub reposu henüz açılmadı; CI ilk push'tan sonra doğrulanacak.
+  - Sonuç: [github.com/TolgaARSLANN/sahtekarlik](https://github.com/TolgaARSLANN/sahtekarlik), CI yeşil.
 - [x] **0.2 Veri indirme**
   - Çıktı: `python -m sahtekarlik.data.download` → `data/raw/{train,test}.parquet`
   - Bitti sayılır: satır sayıları (1.296.675 / 555.719) ve dolandırıcılık oranları doğrulandı
@@ -32,8 +32,40 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
 
 ## FAZ 1: Veri ve Keşif (EDA) · ~1 hafta
 
-- [ ] **1.1 Veri kalite raporu** (`reports/veri_kalite_raporu.md`)
+- [x] **1.1 Veri kalite raporu** (`reports/veri_kalite_raporu.md`)
   - Çıktı: boş değerler, tekrarlar, zaman aralığı, kart başına işlem sayısı, train/test kart örtüşmesi
+  - Sonuç: [`reports/veri_kalite_raporu.md`](../reports/veri_kalite_raporu.md) (`make quality`)
+  - Bulgular ve 1.2 ile sonraki fazlar için kararlar:
+    - Boş değer, tekrar eden işlem, sıfır veya negatif tutar, geçersiz koordinat yok. Aynı kartta
+      aynı saniyede 44 işlem var, ancak tutarları farklı olduğu için gerçek işlem sayılıp korunacak.
+    - İki dosya kesintisiz: eğitimin sonu ile testin başı arasında 48 saniye var. Kart hızı
+      özellikleri iki dosya **birleştirilerek** hesaplanacak. Böylece testin ilk işlemleri,
+      kartın eğitim dönemindeki geçmişini görecek; bu gerçek ortamdaki durumla aynı.
+    - `unix_time`, aynı anın tam 7 yıl geriye (2012-2013'e) kaydırılmış hâli. Saat ve dakika
+      birebir aynı; fark Şubat 2019'da 2557 günden 2556 güne iniyor, çünkü arada 29 Şubat 2012
+      artık günü var. Yeni bilgi taşımadığı için **kullanılmayacak**; zaman kaynağı
+      `trans_date_trans_time` olacak.
+    - Satıcı adlarının %100'ü `fraud_` önekiyle başlıyor. Bu bir simülatör kalıntısı, etiket
+      bilgisi taşımıyor. Temizlikte önek silinecek; aksi hâlde grafiklerde ve arayüzde yanıltıcı görünür.
+    - Müşteri alanlarının 12'si de her kartta sabit. `cc_num` güvenilir bir müşteri kimliği;
+      yaş, cinsiyet ve konum kart düzeyinde kullanılabilir.
+    - **Dolandırıcılık kart başına tek bir patlama hâlinde görülüyor.** 999 kartın 976'sında (%97,7)
+      dolandırıcılık var. Her kartta medyan 10, en fazla 19 dolandırıcılık işlemi, ilk ve son
+      dolandırıcılık arasında en fazla ~2 gün var. Kartların %91'i patlamadan sonra normal
+      kullanılmaya devam ediyor. Bunun sonuçları:
+      (a) Rastgele bölme aynı patlamayı eğitim ve teste dağıtıp sonuçları şişirirdi; zamana göre
+      bölme şart.
+      (b) "Kart daha önce dolandırıldı mı" özelliği simülatörde iki yönde de sızıntı yaratır
+      (patlama sonrası kart bir daha dolandırılmıyor), bu yüzden kullanılmayacak.
+      (c) Son 1 saat / 24 saat pencereli hız özellikleri patlamayı yakalamak için kritik.
+      (d) Faz 2.2'de işlem bazlı metriklere ek olarak **patlama bazlı** metrik de raporlanacak:
+      patlama yakalandı mı, kaçıncı işlemde yakalandı.
+    - Test kartlarının %98,3'ü eğitimde de var; satıcı ve kategorilerin tamamı ortak. Soğuk
+      başlangıç (yeni kart) durumu neredeyse yok, bu README'de sınırlama olarak belirtilecek.
+    - Aralık aylarında işlem hacmi iki katına çıkıyor ve dolandırıcılık oranı düşüyor
+      (Aralık 2020'de %0,18). Testin genel oranının (%0,39) düşük olmasının bir nedeni bu. Eşik,
+      oran yerine maliyet ve alarm bütçesiyle seçilecek; test sonuçları aylık olarak da raporlanacak.
+    - En genç kart sahibi 14 yaşında. Sentetik veri olduğu için dokunulmayacak.
 - [ ] **1.2 Temizlik**
   - Çıktı: `data/processed/transactions.parquet` (kişisel veri sütunları atılmış, zamana göre sıralı,
     `split` sütunu: train/valid/test)
