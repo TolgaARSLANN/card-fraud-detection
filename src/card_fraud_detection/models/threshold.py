@@ -101,6 +101,18 @@ class Calibrator:
             return self.model.predict_proba(_logit(score))[:, 1]
         return self.model.predict(score)
 
+    # Kaydetme: dosyaya bu sınıf değil, yalnızca sade veriler (ve scikit-learn nesnesi) yazılır.
+    # Sınıfın kendisi yazılsaydı, modül betik olarak çalıştırıldığında `__main__.Calibrator`
+    # adıyla kaydedilir ve başka bir yerden (ör. API) yüklenemezdi.
+    def state(self) -> dict:
+        return {"method": self.method, "beta": self.beta, "model": self.model}
+
+    @classmethod
+    def from_state(cls, state: dict) -> Calibrator:
+        cal = cls(state["method"], state["beta"])
+        cal.model = state["model"]
+        return cal
+
 
 def quantile_bins(p, n_bins: int) -> list[np.ndarray]:
     """Yaklaşık eşit sayılı dilimler; sınırlar skor değerlerinden çizilir, böylece aynı skorlu
@@ -279,7 +291,8 @@ def main() -> None:
              for m in Calibrator.METHODS}
     reliability_figure(y[eval_idx], probs, FIGURE)
 
-    joblib.dump({"model": model, "calibrator": final_cal, "features": FEATURES}, MODEL_PATH)
+    joblib.dump({"model": model, "calibrator": final_cal.state(), "features": FEATURES},
+                MODEL_PATH)
     DECISION_PATH.write_text(json.dumps({
         "model": f"{KIND} · {STRATEGY}", "kalibrasyon": final_cal.method, "beta": beta,
         "kural": rule, "esik": threshold, "inceleme_ucreti": REVIEW_COST,

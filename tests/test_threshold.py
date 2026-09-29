@@ -38,6 +38,21 @@ def test_calibrators_are_monotone_probabilities(method):
     assert np.all(np.diff(p) >= -1e-12)
 
 
+@pytest.mark.parametrize("method", Calibrator.METHODS)
+def test_saved_state_needs_no_project_classes(method):
+    """Kaydedilen durum proje sınıflarına atıf yapmamalı; aksi hâlde betik olarak çalıştırılıp
+    kaydedilen dosya başka bir yerden yüklenemez (`__main__.Calibrator` hatası)."""
+    import pickle
+
+    rng = np.random.default_rng(0)
+    score, y = rng.random(500), (rng.random(500) < 0.2).astype(int)
+    cal = Calibrator(method, beta=0.3).fit(score, y)
+    blob = pickle.dumps(cal.state())
+    assert b"card_fraud_detection" not in blob and b"__main__" not in blob
+    restored = Calibrator.from_state(pickle.loads(blob))
+    np.testing.assert_allclose(restored.transform(score), cal.transform(score))
+
+
 def test_isotonic_fixes_miscalibrated_scores():
     rng = np.random.default_rng(1)
     true_p = rng.random(20000) * 0.1

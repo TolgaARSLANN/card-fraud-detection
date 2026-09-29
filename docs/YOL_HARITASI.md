@@ -348,8 +348,54 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
     kazanması; dört yöntemin [0, 1] aralığında monoton olasılık üretmesi; izotonik düzeltmenin
     ECE'yi düşürmesi; ECE'nin satır sırasından bağımsızlığı; beklenen maliyet kuralının tutara
     bağlılığı; zaman katmanlarının geleceğe bakmaması; seçimin tavan satırını dışlaması.
-- [ ] **3.4 Hata analizi** (`evaluation/error_analysis.py`)
+- [x] **3.4 Hata analizi** (`evaluation/error_analysis.py`)
   - Kaçırılan dolandırıcılıklar ve yanlış alarmlar: kategori, tutar, kartın geçmişi
+  - Sonuç: [`reports/hata_analizi.md`](../reports/hata_analizi.md) (`make errors`, ~10 sn).
+    İncelenen alarmlar 3.3'te maliyeti raporlananların aynısı (Mayıs + Haziran, her ay önceki
+    aylarla kalibre edilmiş); test bölmesine dokunulmadı. 132.090 işlemde: 768 yakalandı,
+    93 kaçtı, 164 yanlış alarm.
+  - Bulgular:
+    - **Kaçanlar çoğunlukla bilinçli:** Kaçan 93 dolandırıcılığın %92'si $50'nin altında;
+      kaçan tutar yalnızca $3.832 (dolandırıcılık tutarının %0,8'i). $10'un altındaki
+      dolandırıcılıkların tamamı kaçıyor (57/57): beklenen kaybı inceleme ücretinden az.
+      Akaryakıt, `misc_pos` ve `grocery_net` kategorilerinde dolandırıcılığın yarısı kaçıyor,
+      çünkü bu kategorilerde dolandırıcılık küçük tutarlı (EDA §2).
+    - **Gerçek kör nokta: pahalı ama "sakin" dolandırıcılık.** $200 ve üzeri 4 kaçak, kaçan
+      tutarın ~%65'i. Üçünde tutar kategori medyanının 75-100, kart ortalamasının 8-14 katı,
+      ama eşlik eden bir patlama yok (24 sa tutar düşük) ve olasılık ‰0-2. Model aşırı sapmayı
+      tek başına yeterli saymıyor; simülatörün kalıbını (tutar bandı + gece + patlama) arıyor.
+      Olası iyileştirme: aşırı sapmaya (ör. kategori medyanının 50 katı) kural tabanlı bir
+      emniyet ağı. Yalnızca 3 vakaya dayanacağı için doğrulamada ayarlanmadı; gelecek iş.
+    - **Patlamalar:** 90 patlamadan yalnızca 1'i tamamen kaçtı (2 işlem, $20). Patlamanın ilk
+      işleminde kaçma oranı (%16) diğer sıralardan belirgin biçimde yüksek değil, ama ilk
+      işlem kaçakları kaçan tutarın %40'ı.
+    - **Yanlış alarmlar = büyük, gece, çevrim içi gerçek alışverişler.** 164 yanlış alarmın
+      130'u $500 ve üzerinde (bu tutardaki gerçek işlemlerin %10-12'si alarm alıyor);
+      çevrim içi alışveriş ve gece yoğun. Kartlarda yoğunlaşmıyor (149 kart, kart başına en
+      fazla 2). Bunlar dolandırıcılık kalıbına benzeyen gerçek işlemler; özelliklerin doğal sınırı.
+    - **Patlama sonrası:** Dolandırıcılıktan sonraki 72 saatte kart sahibinin gerçek
+      işlemlerinde yanlış alarm oranı 10 kat yüksek (%1,25 / %0,12), ama sayıca küçük
+      (7 alarm, %4). Gerçekte kart patlamada bloke edileceği için pratik etkisi daha da az.
+    - **Adalet: model cinsiyeti kullanmadığı hâlde kadınlara ~1,7 kat fazla yanlış alarm
+      veriyor** (işlem başına ‰1,53 / ‰0,91; en az bir yanlış alarm alan kart %21,7 / %10,9).
+      Fark $500 üzeri gerçek alışverişlerde (‰140 / ‰71) ve büyük kısmı **kategori
+      karışımından** geliyor: Kadınların büyük alışverişlerinin %69'u dolandırıcılığın yoğun
+      olduğu mağaza/çevrim içi alışverişte, erkeklerinkinin %41'i yanlış alarmın çok düşük
+      olduğu seyahatte. Kategori ve gece karışımı eşitlendiğinde fark 2 kattan ~1,3 kata
+      iniyor. Kategori, cinsiyetin vekili gibi davranıyor: **Korunan özelliği modelden
+      çıkarmak dolaylı farkı tek başına önlemiyor.** Veri sentetik; harcama kalıplarını
+      simülatör üretiyor. README'de ve Faz 4'te izlenecek ölçüt olarak yer alacak. Yaşa göre
+      recall benzer (%83-92); yanlış alarm oranı 65 yaş ve üzerinde daha yüksek (‰1,7 / ~‰1,1-1,3).
+  - Yolda bulunan hata: `model.joblib`, 3.3'te `threshold.py` betik olarak çalıştırılırken
+    kaydedildiği için kalibratör `__main__.Calibrator` adıyla yazılmıştı; başka bir yerden
+    (ör. API) yüklenemezdi. Hata analizi dosyayı tesadüfen açabildi (sınıfı kendi ad alanına
+    almıştı); ayrı bir betik açamayınca fark edildi. Kalibratör artık sade veri olarak
+    kaydediliyor; proje sınıflarına atıf yapmadığını sınayan test eklendi, dosya başka bir
+    dizinden yüklenerek doğrulandı.
+  - Testler (`tests/test_error_analysis.py`, 7 test): sonuç etiketleri, patlama sırası ve satır
+    sırasından bağımsızlığı, patlama sonrası pencere, kaçan dolandırıcılık dökümü, grup hata
+    oranları, doğrudan standartlaştırmanın karışım etkisini gidermesi, yanlış alarmların
+    kartlara dağılımı.
 - [ ] **3.5 Final model ve tek seferlik test**
   - Çıktı: `models/model.joblib`, `models/metadata.json` (eşik, özellikler, metrikler)
   - Bitti sayılır: test PR-AUC değeri en iyi referans modelinkini açıkça geçiyor
