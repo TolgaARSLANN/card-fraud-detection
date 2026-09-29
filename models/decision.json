@@ -1,0 +1,9 @@
+{
+  "model": "LightGBM · alt örnekleme",
+  "kalibrasyon": "önsel düzeltme",
+  "beta": 0.05812067622669171,
+  "kural": "beklenen maliyet",
+  "esik": null,
+  "inceleme_ucreti": 10.0,
+  "gunluk_butce": 25
+}

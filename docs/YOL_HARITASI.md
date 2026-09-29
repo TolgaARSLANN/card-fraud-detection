@@ -293,8 +293,61 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
   - Hata ve düzeltme: İlk çalıştırma, 10 dakikalık aramadan sonra sonucu JSON'a yazarken çöktü
     (karar değeri `numpy.bool_` idi). Düzeltildi; JSON'a yazılabilirliği sınayan test ve
     denemelerin kalıcı saklanması eklendi. Yeniden çalıştırma aynı sonuçları verdi (tekrarlanabilir).
-- [ ] **3.3 Kalibrasyon ve eşik** (`models/threshold.py`)
+- [x] **3.3 Kalibrasyon ve eşik** (`models/threshold.py`)
   - İzotonik kalibrasyon, güvenilirlik eğrisi, doğrulama kümesinde maliyeti en aza indiren eşik
+  - Sonuç: [`reports/kalibrasyon_esik.md`](../reports/kalibrasyon_esik.md) (`make threshold`, ~15 sn).
+    Çıktılar: `models/model.joblib` (model + kalibratör; repoya girmez, `make threshold` ile
+    yeniden üretilir) ve `models/decision.json` (karar kuralı).
+  - Tasarım:
+    - Model yalnızca eğitim bölmesiyle eğitildi. Doğrulama kalibrasyon ve karar kuralına
+      ayrıldı; eğitim + doğrulamayla yeniden eğitilen bir modelin skor dağılımı değişeceği
+      için doğrulamada öğrenilen kalibratör ona uymazdı.
+    - Dürüst ölçüm için genişleyen zaman penceresi: Nisan'da öğren → Mayıs'ta ölç; Nisan +
+      Mayıs'ta öğren → Haziran'da ölç. Seçim ölçütü önceden konuldu: öğrenilmeyen aylardaki
+      toplam maliyet.
+    - Kalibrasyon: ham skor, önsel düzeltme (alt örnekleme oranından analitik; β = 0,058),
+      Platt, izotonik. Kurallar: tek sabit eşik, **beklenen maliyet** (olasılık × tutar ≥ $10;
+      parametresiz, tutara göre değişen eşik), günlük 25 alarm bütçesi.
+  - **Karar: beklenen maliyet kuralı, önsel düzeltmeyle.** Öğrenilmeyen iki ayda:
+
+    | kural · kalibrasyon | alarm | kaçan tutar | işlem bazlı maliyet | kart bloke varsayımıyla maliyet |
+    |---|---|---|---|---|
+    | **beklenen maliyet · önsel düzeltme** | 932 | $3.832 | **$13.152** | **$4.969** |
+    | sabit eşik, ölçülen ayda seçilmiş (iyimser tavan) | 1.054 | $2.726 | $13.266 | – |
+    | beklenen maliyet · izotonik | 1.052 | $3.304 | $13.824 | $5.641 |
+    | sabit eşik · izotonik | 1.028 | $3.744 | $14.024 | $5.780 |
+    | günlük bütçe (25) · izotonik | 1.300 | $19.963 | $32.963 | – |
+
+  - Yorum:
+    - **Parametresiz beklenen maliyet kuralı, ölçülen ayın kendisinde seçilmiş (iyimser) sabit
+      eşiğe eşdeğer.** Tutara göre değişen eşik, ayarlanacak bir değer gerektirmeden en iyi
+      sabit eşik kadar iyi; eşiğin aylar arasında kayması riski de yok.
+    - **İlk dört aday arasındaki fark küçük** (iki ayda $13,2-14,0 bin). Seçim, önceden konan
+      ölçüte göre yapıldı ama sıralama kesin değil.
+    - **Ödünleşim:** Beklenen maliyet kuralı daha az dolandırıcılık yakalıyor (recall ~%89,
+      sabit eşikte ~%97; ilk işlemde yakalama ~%84 / ~%93). Beklenen kaybı $10'dan az olan
+      küçük işlemlere bilerek alarm vermiyor. İşlem bazlı maliyet, küçük ilk işlemi yakalamanın
+      kartı bloke edip sonraki büyük işlemleri önleyeceğini görmediği için ayrıca "kart ilk
+      alarmda bloke edilir" varsayımıyla maliyet hesaplandı (ek kontrol, rapora girmedi).
+      **Seçilen kural o hesapta da en ucuz:** sabit eşiğin fazladan alarmlarının ücreti,
+      önlediği kaybı aşıyor. Karar, maliyetin tanımına bağlı değil.
+    - **Günlük bütçe en kötüsü** (maliyet 2,5 kat): Günlerin dolandırıcılık yükü eşit değil ve
+      bütçe tutarı hiç dikkate almıyor.
+    - **Kalibrasyon:** Ham skor alt örnekleme nedeniyle riski abartıyor (Haziran'da ortalama
+      tahmin %0,68, gerçek oran %0,58; yüksek bölgede %10 denen işlemlerin ~%3'ü dolandırıcılık).
+      İzotonik ve Platt köşegene en yakın. Önsel düzeltme ortalamada iyi (ECE düşük) ama
+      %0,1-1 bölgesinde riski ~4 kat düşük gösteriyor. → Faz 4'te analiste gösterilecek
+      olasılık için bu not dikkate alınacak.
+  - Hata ve düzeltmeler: ECE, eşit skorlu işlemleri satır sırasına göre farklı dilimlere
+    bölüyordu (izotonik çıktı çok sayıda eşit değer üretir); dilim sınırları skor değerlerinden
+    çizilecek biçimde düzeltildi ve testlendi. Önsel düzeltme, yuvarlama nedeniyle 1'i
+    aşabiliyordu; sınırlandı. Güvenilirlik grafiğinin ilk iki sürümü yanıltıcıydı (noktalar
+    sıfıra yığılıyordu; ardından hiç dolandırıcılık içermeyen dilimler atılıp eğri yukarı
+    itilmişti); dilimler üst kuyruğa yoğunlaştırıldı ve boş dilimler tabanda gösterildi.
+  - Testler (`tests/test_threshold.py`, 11 test): önsel düzeltmenin gerçek oranı geri
+    kazanması; dört yöntemin [0, 1] aralığında monoton olasılık üretmesi; izotonik düzeltmenin
+    ECE'yi düşürmesi; ECE'nin satır sırasından bağımsızlığı; beklenen maliyet kuralının tutara
+    bağlılığı; zaman katmanlarının geleceğe bakmaması; seçimin tavan satırını dışlaması.
 - [ ] **3.4 Hata analizi** (`evaluation/error_analysis.py`)
   - Kaçırılan dolandırıcılıklar ve yanlış alarmlar: kategori, tutar, kartın geçmişi
 - [ ] **3.5 Final model ve tek seferlik test**
