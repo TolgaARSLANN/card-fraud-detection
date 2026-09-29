@@ -29,4 +29,11 @@ VALID_START = "2020-04-01"
 TEST_START = "2020-06-21 12:14:00"
 SPLITS = ["train", "valid", "test"]
 
+# Değerlendirme varsayımları (evaluation/metrics.py)
+# Her alarmın (doğru ya da yanlış) incelenme maliyeti; kaçırılan dolandırıcılığın maliyeti tutarıdır
+REVIEW_COST = 10.0
+# Bir kartta aralarında bu süreden az olan dolandırıcılıklar aynı patlama sayılır.
+# Kalite raporu §8: patlamalar en fazla ~2 gün sürüyor.
+BURST_GAP = "3D"
+
 RANDOM_STATE = 42

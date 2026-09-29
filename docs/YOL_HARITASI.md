@@ -159,9 +159,30 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
   - Boş değerler: kartın ilk işleminde önceki işlem yok (%0,05), z-skoru ilk iki işlemde
     tanımsız (%0,11). LightGBM boş değerleri doğrudan işler; lojistik regresyon için 2.3'te
     doldurulacak.
-- [ ] **2.2 Metrikler** (`evaluation/metrics.py`)
+- [x] **2.2 Metrikler** (`evaluation/metrics.py`)
   - PR-AUC, ROC-AUC, sabit precision'da recall, alarm bütçesine göre (top-k) yakalama,
     yakalanan dolandırıcılık tutarı, maliyet (kaçırılan = tutar, yanlış alarm = sabit inceleme ücreti)
+  - Sonuç: Üç düzey metrik ve tek çağrıda özet (`evaluate`):
+    - Sıralama: PR-AUC, ROC-AUC, sabit precision'da recall
+    - Operasyon: alarm, TP/FP/FN, precision, recall, yakalanan ve kaçan tutar, maliyet;
+      maliyet eğrisi ve maliyeti en aza indiren eşik; günlük alarm bütçesi (her gün en
+      yüksek skorlu k işlem)
+    - Patlama: yakalanan patlama oranı, ilk işlemde yakalanan oranı, ilk alarmın medyan sırası,
+      ilk alarma kadar kaybedilen tutar oranı
+  - Varsayımlar (`config.py`, değiştirilebilir): Her alarmın inceleme ücreti $10; doğru
+    alarmlar da incelendiği için ücret hepsine uygulanır. Bir kartta aralarında 3 günden az
+    olan dolandırıcılıklar tek patlamadır. Patlama metriği ilk alarmda kartın bloke edildiğini
+    varsayar; bu yüzden işlem bazlı kaçan tutardan iyimserdir ve ikisi birlikte raporlanacak.
+  - Testler (`tests/test_metrics.py`, 10 test): elle hesaplanmış örnekler; maliyet eğrisi,
+    eşit skorlu işlemler de olan rastgele veride her eşiği tek tek deneyen kaba kuvvet hesapla
+    karşılaştırıldı. Beş kasıtlı hata denendi (eşitlik grubunu bölmek, ücreti yalnızca yanlış
+    alarma yazmak, patlamaları kart ayırmadan bölmek, kaybı ilk alarm dahil saymak, bütçeyi
+    gün ayırmadan uygulamak); beşi de yakalandı.
+  - İşlerlik denemesi (doğrulama bölmesi, skor = yalnızca tutar): 199 bin işlem 0,5 sn'de
+    değerlendirildi. **Tek başına tutar bile güçlü:** PR-AUC 0,19, ROC-AUC 0,84; maliyete göre
+    seçilen $257 eşiğiyle recall 0,75, precision 0,16, patlamaların %98'i yakalanıyor. Hiç
+    alarm vermemenin maliyeti $619.630, bu kuralla $67.702. → 2.3'te "yalnızca tutar" referans
+    modeli ciddi bir çıta; asıl model bunu açıkça geçmeli.
 - [ ] **2.3 Referans modeller** (`models/baselines.py`)
   - Kural tabanlı model, yalnızca tutar kullanan model, lojistik regresyon, Isolation Forest (denetimsiz)
   - Çıktı: `reports/baseline_sonuclari.md`
