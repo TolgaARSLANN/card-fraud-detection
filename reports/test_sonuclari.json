@@ -1,0 +1,52 @@
+{
+  "zaman": "2026-09-29T22:33:01",
+  "basari_olcutu_gecti": true,
+  "bootstrap": {
+    "fark": 0.42540768558544906,
+    "alt_sinir_95": 0.38615758286260854,
+    "ust_sinir_95": 0.46704079079577593,
+    "tekrar": 200
+  },
+  "karar_kurali": "beklenen maliyet",
+  "kalibrasyon": "önsel düzeltme",
+  "test": {
+    "PR-AUC": 0.9593577181749173,
+    "ROC-AUC": 0.9991438132860959,
+    "alarm": 2522.0,
+    "tp": 1870.0,
+    "fp": 652.0,
+    "fn": 275.0,
+    "precision": 0.7414750198255353,
+    "recall": 0.8717948717948718,
+    "yakalanan_tutar": 1113019.74,
+    "tutar_recall": 0.982083739674671,
+    "kacan_tutar": 20304.940000000177,
+    "maliyet": 45524.94000000018,
+    "patlama": 218.0,
+    "patlama_recall": 0.9954128440366973,
+    "ilk_islemde_yakalanan": 0.7431192660550459,
+    "ilk_alarm_sira_medyan": 1.0,
+    "kayip_tutar_orani": 0.007007171148871479
+  },
+  "hic_alarm_vermemenin_maliyeti": 1133324.6800000002,
+  "karsilastirma": {
+    "LightGBM · alt örnekleme (final)": {
+      "PR-AUC": 0.9593577181749173,
+      "ROC-AUC": 0.9991438132860959,
+      "günde 25 alarm: recall": 0.9384615384615385,
+      "günde 25 alarm: tutar recall": 0.9692636006126681
+    },
+    "Referans: lojistik regresyon": {
+      "PR-AUC": 0.5339500325894683,
+      "ROC-AUC": 0.9828430263244758,
+      "günde 25 alarm: recall": 0.7058275058275059,
+      "günde 25 alarm: tutar recall": 0.87659673130916
+    },
+    "Referans: yalnızca tutar": {
+      "PR-AUC": 0.1369030157525491,
+      "ROC-AUC": 0.8332211077323745,
+      "günde 25 alarm: recall": 0.45734265734265733,
+      "günde 25 alarm: tutar recall": 0.7909361596184421
+    }
+  }
+}

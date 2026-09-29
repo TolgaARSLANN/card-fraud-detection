@@ -396,7 +396,7 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
     sırasından bağımsızlığı, patlama sonrası pencere, kaçan dolandırıcılık dökümü, grup hata
     oranları, doğrudan standartlaştırmanın karışım etkisini gidermesi, yanlış alarmların
     kartlara dağılımı.
-- [ ] **3.5 Final model ve tek seferlik test**
+- [x] **3.5 Final model ve tek seferlik test**
   - Çıktı: `models/model.joblib`, `models/metadata.json` (eşik, özellikler, metrikler)
   - Bitti sayılır: test PR-AUC değeri en iyi referans modelinkini açıkça geçiyor
   - **Protokol (test verisine bakılmadan önce yazıldı ve commit edildi):**
@@ -419,6 +419,43 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
     - Prova: Kod, test verisine dokunmadan (doğrulama verisi "test" yerine konularak, çıktılar
       geçici dizine) baştan sona çalıştırıldı. Doğrulamadaki PR-AUC'ler önceki fazlarla birebir
       aynı çıktı (0,9752 / 0,6254 / 0,1874); kilit ikinci çalıştırmayı reddetti.
+  - **Sonuç: başarı ölçütü GEÇTİ.** [`reports/test_sonuclari.md`](../reports/test_sonuclari.md).
+    Test ilk ve tek kez 2026-09-29 22:30:26'da değerlendirildi (protokol commit'i `c9fefce`
+    bundan önce). Ardından yalnızca rapordaki sayı biçimi (adetlerin "30058.0000" diye
+    yazılması) düzeltilip rapor `--force` ile yeniden üretildi; zaman damgası dışında tüm
+    sonuçlar birebir aynı çıktı (JSON karşılaştırmasıyla doğrulandı).
+    - PR-AUC farkı (model − lojistik regresyon): **0,425**, %95 güven aralığı [0,386; 0,467]
+      (kart düzeyinde bootstrap, 200 tekrar).
+
+      | model | test PR-AUC | ROC-AUC | günde 25 alarmla recall | tutar recall |
+      |---|---|---|---|---|
+      | **LightGBM · alt örnekleme** | **0,959** | 0,999 | %94 | %97 |
+      | Lojistik regresyon | 0,534 | 0,983 | %71 | %88 |
+      | Yalnızca tutar | 0,137 | 0,833 | %46 | %79 |
+
+    - Karar kuralıyla (555.719 işlem, 2.145 dolandırıcılık, 6 ay): 2.522 alarm, precision %74,
+      recall %87, **tutar recall %98,2**; kaçan tutar $20.305. **Maliyet $45.525; hiç alarm
+      vermemenin maliyeti $1.133.325** (%96 azalma). Patlamaların %99,5'i yakalandı; %74'ü
+      ilk işlemde.
+  - Yorum:
+    - **Doğrulamadan teste düşüş küçük ve beklenen yönde:** PR-AUC 0,975 → 0,959. Testte
+      dolandırıcılık oranı daha düşük (%0,39 / %0,58); PR-AUC temel orana bağlı olduğu için
+      düşüşün bir kısmı bu farktan geliyor.
+    - **Aylar arasında kararlı, iki istisna:** Ağustos-Kasım PR-AUC 0,965-0,971. **Aralık en
+      zayıf ay** (PR-AUC 0,929, precision %60): işlem hacmi iki katına çıkıyor, dolandırıcılık
+      oranı %0,18'e iniyor; tatil alışverişi normalin dışında büyük işlemler üretip yanlış
+      alarmları artırıyor. 1.1'de öngörülen mevsimsel risk gerçekleşti. Temmuz da görece
+      zayıf (0,937). Gerçek bir sistemde modelin mevsimsel örüntüleri görecek şekilde düzenli
+      yeniden eğitilmesi gerekir.
+    - **Patlamayı ilk işlemde yakalama doğrulamadakinden düşük** (%74; doğrulamada ~%84).
+      Kural küçük ilk işlemlere bilerek alarm vermediği için beklenen bir ödünleşim, ama
+      testte daha belirgin.
+    - **Cinsiyet farkı testte farklı görünüyor:** Yanlış alarm oranı farkı küçülmüş
+      (‰1,25 / ‰1,10; doğrulamada 1,7 kattı), ama bu kez recall kadınlarda düşük
+      (%84,8 / %90,0). İzlenen ölçüt olarak README'de ve servis aşamasında raporlanacak.
+  - Çıktılar: `reports/test_sonuclari.md`, `reports/test_sonuclari.json`, `models/metadata.json`.
+    Testler (`tests/test_final.py`, 5 test): bootstrap'in gerçek farkı yakalaması ve eşit
+    modellerde sıfırı kapsaması, kilidin ikinci çalıştırmayı reddetmesi, aylık döküm, sayı biçimi.
 - [ ] **3.6 Açıklanabilirlik** (SHAP özet grafiği ve işlem bazlı waterfall grafiği, `notebooks/02_model.ipynb`)
 
 ## FAZ 4: Servis ve Arayüz · ~1 hafta

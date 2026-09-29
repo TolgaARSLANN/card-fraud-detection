@@ -112,6 +112,30 @@ def monthly(frame: pd.DataFrame, p, alerts) -> pd.DataFrame:
     return out
 
 
+COUNT_KEYS = {"alarm", "tp", "fp", "fn", "patlama", "tekrar", "işlem", "dolandırıcılık"}
+MONEY_KEYS = {"kacan_tutar", "maliyet"}
+
+
+def _fmt_value(key: str, value) -> str:
+    if key in COUNT_KEYS:
+        return f"{int(round(value)):,}"
+    if key in MONEY_KEYS:
+        return f"${value:,.0f}"
+    return f"{value:.4f}"
+
+
+def formatted(table: pd.DataFrame | pd.Series) -> pd.DataFrame:
+    """Adetler tam sayı, tutarlar dolar, oranlar 4 basamak (to_markdown yalnızca float biçimler)."""
+    if isinstance(table, pd.Series):
+        out = pd.DataFrame({table.name: [_fmt_value(k, v) for k, v in table.items()]},
+                           index=table.index)
+    else:
+        out = pd.DataFrame({c: [_fmt_value(c, v) for v in table[c]] for c in table.columns},
+                           index=table.index)
+    out.index.name = table.index.name
+    return out
+
+
 def load_frames() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     cols = list(dict.fromkeys(["tx_id", TIME_COL, CARD_COL, "split", TARGET, "amt",
                                *FEATURES, *DEMOGRAPHIC_FEATURES]))
@@ -209,7 +233,7 @@ def main() -> None:
         "Ölçüt: Test PR-AUC farkının (model − lojistik regresyon) %95 güven aralığı tamamen "
         f"sıfırın üstünde. Kart düzeyinde bootstrap, {boot['tekrar']} tekrar.",
         "",
-        to_markdown(boot_tbl, ".4f"),
+        to_markdown(formatted(boot_tbl)),
         "",
         "## Modeller (eşikten bağımsız)",
         "",
@@ -219,7 +243,7 @@ def main() -> None:
         "",
         f"Hiç alarm vermemenin maliyeti: ${no_alert_cost:,.0f}.",
         "",
-        to_markdown(rule_tbl, ".4f"),
+        to_markdown(formatted(rule_tbl)),
         "",
         "## Doğrulama ve test",
         "",
@@ -227,7 +251,7 @@ def main() -> None:
         "",
         "## Aylara göre",
         "",
-        to_markdown(by_month, ".4f"),
+        to_markdown(formatted(by_month)),
         "",
         "## Cinsiyete göre hata oranları (izlenen ölçüt, Faz 3.4)",
         "",

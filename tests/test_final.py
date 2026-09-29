@@ -3,7 +3,12 @@ import pandas as pd
 import pytest
 
 import card_fraud_detection.models.final as final
-from card_fraud_detection.models.final import card_bootstrap_diff, check_lock, monthly
+from card_fraud_detection.models.final import (
+    card_bootstrap_diff,
+    check_lock,
+    formatted,
+    monthly,
+)
 
 
 def _scores(n=3000, seed=0):
@@ -36,6 +41,12 @@ def test_lock_blocks_second_run(tmp_path, monkeypatch):
     with pytest.raises(SystemExit, match="bir kez"):
         check_lock(force=False)
     check_lock(force=True)                                    # bilinçli yeniden üretim
+
+
+def test_formatted_counts_money_and_rates():
+    s = pd.Series({"alarm": 2522.0, "maliyet": 45524.94, "recall": 0.87184, "tekrar": 200.0},
+                  name="değer")
+    assert formatted(s)["değer"].tolist() == ["2,522", "$45,525", "0.8718", "200"]
 
 
 def test_monthly_splits_by_month():

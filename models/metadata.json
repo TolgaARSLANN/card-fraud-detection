@@ -1,0 +1,33 @@
+{
+  "model": "LightGBM · alt örnekleme (final)",
+  "egitim": "yalnızca eğitim bölmesi (2019-01-01 → 2020-03-31)",
+  "ozellikler": [
+    "amt",
+    "log_amt",
+    "category",
+    "hour",
+    "dow",
+    "is_night",
+    "amt_to_cat_median",
+    "n_1h",
+    "n_24h",
+    "n_7d",
+    "amt_sum_1h",
+    "amt_sum_24h",
+    "amt_sum_7d",
+    "hrs_since_prev",
+    "card_n_prev",
+    "amt_to_card_mean",
+    "amt_card_z",
+    "first_in_category",
+    "first_at_merchant"
+  ],
+  "kalibrasyon": "önsel düzeltme",
+  "beta": 0.05812067622669171,
+  "karar_kurali": "beklenen maliyet",
+  "esik": null,
+  "inceleme_ucreti": 10.0,
+  "test_pr_auc": 0.9593577181749173,
+  "test_maliyet": 45524.94000000018,
+  "test_degerlendirme_zamani": "2026-09-29T22:33:01"
+}
