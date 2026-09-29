@@ -41,7 +41,7 @@ bölmesiyle yapıldı.
 3. **Dolandırıcılık gece yoğunlaşıyor.** 22:00–03:59 arası işlemlerin %23,5'i, dolandırıcılığın
    ise %84,7'si.
 4. **Patlamayı işlem sayısı değil, tutar ele veriyor.** Son 24 saatteki işlem sayısının medyanı
-   iki sınıfta da 4. Buna karşılık tutarı kartın geçmiş ortalamasının 3 katını aşan işlemler,
+   normal işlemlerde 3, dolandırıcılıkta 4; fark küçük. Buna karşılık tutarı kartın geçmiş ortalamasının 3 katını aşan işlemler,
    tüm işlemlerin %4'ü ama dolandırıcılığın %65'i.
 5. **Bazı beklenen sinyaller bu veride yok.** Müşteri–satıcı mesafesi iki sınıfta aynı
    dağılıyor; simülatör satıcı konumunu rastgele üretiyor. Demografik sinyal zayıf ve yaş ile

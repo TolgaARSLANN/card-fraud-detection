@@ -108,8 +108,13 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
       medyanı" özelliği eklendi; medyanlar yalnızca eğitimden hesaplanacak.
     - Gece saatleri işlemlerin %23,5'i, dolandırıcılığın %84,7'si. → Saat ve gece bayrağı.
     - Patlamayı işlem **sayısı** değil **tutar** ele veriyor: 24 saatlik işlem sayısının medyanı
-      iki sınıfta da 4, 24 saatlik tutar ise $1.687'ye $172. Tutarı kartın geçmiş ortalamasının
-      3 katını aşan işlemler, işlemlerin %4'ü ama dolandırıcılığın %65'i.
+      normalde 3, dolandırıcılıkta 4; 24 saatlik tutar ise $1.687'ye $172. Tutarı kartın geçmiş
+      ortalamasının 3 katını aşan işlemler, işlemlerin %4'ü ama dolandırıcılığın %65'i.
+    - *Düzeltme (2.1):* EDA'nın ilk sürümü, son 24 saatte hiç işlemi olmayan satırlarda işlem
+      sayısını 0 yerine boş bıraktı. Bu satırlar (eğitimin %8,5'i) o analizden düştü ve
+      "medyan iki sınıfta da 4" sonucu çıktı. Hata, 2.1'deki bağımsız uygulamayla
+      karşılaştırmada yakalandı ve notebook düzeltildi. Ana sonuç (işlem sayısı zayıf bir
+      sinyal) değişmedi.
     - Patlamanın ilk işleminde kart sakin (24 saatte $39), ama tutar oranı zaten 5,1. → 2.2'deki
       patlama bazlı metrik, erken yakalamayı ölçmek için gerekli.
     - Müşteri–satıcı mesafesi iki sınıfta aynı dağılımda: simülatör satıcı konumunu rastgele
@@ -121,7 +126,7 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
 
 ## FAZ 2: Özellikler ve Referans Modeller · ~1 hafta
 
-- [ ] **2.1 Özellikler** (`features/build.py`)
+- [x] **2.1 Özellikler** (`features/build.py`)
   - İşlem: tutar, log tutar, kategori, saat, haftanın günü, gece bayrağı, tutar / kategori
     medyanı (medyanlar yalnızca eğitim bölmesinden)
   - Kart geçmişi: son 1 sa / 24 sa / 7 gündeki işlem sayısı ve tutar toplamı, önceki işlemden
@@ -131,6 +136,29 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
   - Demografi (yaş, cinsiyet): ana modelde yok; Faz 3'te ayrı bir karşılaştırma modelinde
     denenecek. Şehir nüfusu sinyal taşımadığı için kullanılmayacak.
   - Bitti sayılır: sızıntı testi, yani t anından sonraki satırlar değiştirildiğinde t'deki özellikler değişmiyor
+  - Sonuç: `make features` (~20 sn, ~1 GB bellek) → `data/processed/features.parquet`
+    (1.852.394 satır, 19 ana özellik + 2 demografik) ve `models/feature_stats.json` (eğitimden
+    öğrenilen kategori medyanları; servis de aynı dosyayı kullanacak).
+  - Testler (`tests/test_features.py`, 7 test): elle hesaplanmış değerler, aynı saniyedeki
+    işlemler, **sızıntı testi** (kesim anından sonraki tutar, kategori, satıcı ve etiketler
+    değiştirilir; öncesindeki özellikler birebir aynı kalır), satır sırasından bağımsızlık,
+    etiketlerin kullanılmadığı, `fit_stats`'ın yalnızca eğitimi kabul etmesi, bilinmeyen kategori.
+  - Testlerin koruyuculuğu, kod kasıtlı bozularak sınandı. Üç hata denendi: geleceği gören
+    ortalama, o anı içeren pencere, kart yerine tüm tablo sırasına göre "önceki işlem". İlk
+    denemede üçüncüsü yakalanmadı: değer testi yalnızca tablonun başındaki kartı kontrol
+    ediyordu. İkinci kartın ilk işlemi için doğrulama eklendi; artık üçü de yakalanıyor.
+  - Bağımsız sağlama: Eğitim bölmesindeki medyanlar, EDA'daki ayrı uygulamayla birebir
+    tuttu (24 sa tutar $172/$1.687, önceki işlemden süre 4,6/1,3 sa, kart ortalamasına oran
+    0,66/5,19). Karşılaştırma, EDA'daki işlem sayısı hatasını ortaya çıkardı (bkz. 1.3).
+  - Eğitimde en çok ayrışan özellikler (medyan normal / dolandırıcılık): tutar / kategori
+    medyanı 1,0 / 7,9; tutar / kart ortalaması 0,66 / 5,19; kart z-skoru −0,19 / 2,52;
+    24 sa tutar $172 / $1.687; saat 14 / 22; satıcıda ilk işlem 0 / 1.
+  - Tasarım notu: Pencere özellikleri `[t − pencere, t)` aralığına bakar, aynı saniyedeki
+    işlemleri saymaz. Sıra tabanlı özellikler ise aynı saniyede `tx_id` sırasında öncekini
+    geçmiş sayar. Bu fark yalnızca aynı kartta aynı saniyedeki 44 işlemi etkiler.
+  - Boş değerler: kartın ilk işleminde önceki işlem yok (%0,05), z-skoru ilk iki işlemde
+    tanımsız (%0,11). LightGBM boş değerleri doğrudan işler; lojistik regresyon için 2.3'te
+    doldurulacak.
 - [ ] **2.2 Metrikler** (`evaluation/metrics.py`)
   - PR-AUC, ROC-AUC, sabit precision'da recall, alarm bütçesine göre (top-k) yakalama,
     yakalanan dolandırıcılık tutarı, maliyet (kaçırılan = tutar, yanlış alarm = sabit inceleme ücreti)

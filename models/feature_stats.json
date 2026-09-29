@@ -1,0 +1,38 @@
+{
+  "category_median_amt": {
+    "entertainment": 50.62,
+    "food_dining": 41.99,
+    "gas_transport": 62.82,
+    "grocery_net": 50.94,
+    "grocery_pos": 105.15,
+    "health_fitness": 42.87,
+    "home": 48.27,
+    "kids_pets": 47.13,
+    "misc_net": 9.85,
+    "misc_pos": 13.8,
+    "personal_care": 32.51,
+    "shopping_net": 8.43,
+    "shopping_pos": 7.75,
+    "travel": 6.27
+  },
+  "categories": [
+    "entertainment",
+    "food_dining",
+    "gas_transport",
+    "grocery_net",
+    "grocery_pos",
+    "health_fitness",
+    "home",
+    "kids_pets",
+    "misc_net",
+    "misc_pos",
+    "personal_care",
+    "shopping_net",
+    "shopping_pos",
+    "travel"
+  ],
+  "genders": [
+    "F",
+    "M"
+  ]
+}
