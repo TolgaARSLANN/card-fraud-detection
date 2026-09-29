@@ -267,7 +267,32 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
     tutturuyor; SMOTE yalnızca dolandırıcılık ekliyor, özgün satırlara ve normal işlemlere
     dokunmuyor, kategorik sütunlarda ara değer üretmiyor; 8 model × strateji kombinasyonunun
     her biri öğreniyor; doğrulama satırları birbirinden bağımsız skorlanıyor.
-- [ ] **3.2 Hiperparametre ayarı** (`models/tune.py`, Optuna, doğrulama kümesinde PR-AUC)
+- [x] **3.2 Hiperparametre ayarı** (`models/tune.py`, Optuna, doğrulama kümesinde PR-AUC)
+  - Sonuç: [`reports/ayar_sonuclari.md`](../reports/ayar_sonuclari.md) (`make tune`, 60 deneme,
+    ~15 dk). LightGBM · alt örnekleme; alt örnekleme oranı da aranan parametrelerden biri.
+    İlk deneme varsayılan parametreler. Denemeler `data/processed/optuna.db`'de kalıcı; yarıda
+    kalan çalışma kaldığı yerden sürer.
+  - **Karar: varsayılan parametrelerde kalındı.** Benimseme kuralı ayardan **önce** yazıldı:
+    tohum ortalamasındaki kazanç tohum oynaklığından büyük olmalı **ve** doğrulamanın her ayında
+    ayarlanmış model daha iyi olmalı.
+
+    | kontrol | varsayılan | ayarlanmış | sonuç |
+    |---|---|---|---|
+    | 3 tohum PR-AUC | 0,9749 ± 0,0016 | 0,9769 ± 0,0012 | kazanç +0,0021 < oynaklık 0,0028 → geçmedi |
+    | Nisan / Mayıs / Haziran | 0,971 / 0,987 / 0,967 | 0,974 / 0,989 / 0,972 | her ay daha iyi → geçti |
+
+  - Not: Ayarlanmış model üç tohumun ve üç ayın her birinde daha iyi; eşleştirilmiş bir
+    karşılaştırma büyük olasılıkla kazancı anlamlı bulurdu. Kural (iki standart sapmanın toplamı)
+    temkinli, ama sonucu gördükten sonra kuralı gevşetmek ölçütü sonuca göre ayarlamak olacağı
+    için değiştirilmedi. Pratik etki küçük (~0,002 PR-AUC). Ayarlanmış parametreler
+    `models/best_params.json`'da (`ayarlanmis_parametreler`) saklı.
+  - Ayardan öğrenilen: Etkinin yarısı alt örnekleme oranından geliyor (fANOVA 0,50). En iyi
+    denemeler oranı ~0,04'e (1'e 25; varsayılan 1'e 10) indiriyor ve daha küçük ağaçlar
+    (15-30 yaprak; varsayılan 63) seçiyor: Modele daha çok normal işlem göstermek ve modeli
+    sadeleştirmek biraz yarar sağlıyor.
+  - Hata ve düzeltme: İlk çalıştırma, 10 dakikalık aramadan sonra sonucu JSON'a yazarken çöktü
+    (karar değeri `numpy.bool_` idi). Düzeltildi; JSON'a yazılabilirliği sınayan test ve
+    denemelerin kalıcı saklanması eklendi. Yeniden çalıştırma aynı sonuçları verdi (tekrarlanabilir).
 - [ ] **3.3 Kalibrasyon ve eşik** (`models/threshold.py`)
   - İzotonik kalibrasyon, güvenilirlik eğrisi, doğrulama kümesinde maliyeti en aza indiren eşik
 - [ ] **3.4 Hata analizi** (`evaluation/error_analysis.py`)

@@ -1,0 +1,31 @@
+{
+  "model": "LightGBM",
+  "strateji": "alt örnekleme",
+  "benimsendi": false,
+  "parametreler": {
+    "ratio": 0.1,
+    "n_estimators": 500,
+    "learning_rate": 0.05,
+    "num_leaves": 63,
+    "min_child_samples": 100,
+    "subsample": 0.8,
+    "subsample_freq": 1,
+    "colsample_bytree": 0.8
+  },
+  "ayarlanmis_parametreler": {
+    "ratio": 0.04047709190345184,
+    "n_estimators": 700,
+    "learning_rate": 0.08489515386000071,
+    "num_leaves": 20,
+    "min_child_samples": 14,
+    "subsample": 0.8382197393836238,
+    "colsample_bytree": 0.727763337283255,
+    "reg_lambda": 0.0011998743188900295,
+    "reg_alpha": 0.0010873673443190183,
+    "subsample_freq": 1
+  },
+  "gerekce": [
+    "Tohum ortalamasında kazanç +0.0021; tohum oynaklığı (iki std toplamı) 0.0028 → geçmedi.",
+    "Her ayda ayarlanmış model daha iyi mi: evet → geçti."
+  ]
+}

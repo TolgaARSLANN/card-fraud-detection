@@ -63,26 +63,29 @@ XGB_PARAMS = dict(n_estimators=500, learning_rate=0.05, max_depth=6, min_child_w
 
 # Dengesizlik stratejileri -------------------------------------------------------------------------
 
-def resample(x: pd.DataFrame, y: pd.Series, strategy: str, seed: int = RANDOM_STATE):
-    """(x, y, ek model parametreleri) döndürür. Girdiler değiştirilmez."""
+def resample(x: pd.DataFrame, y: pd.Series, strategy: str, seed: int = RANDOM_STATE,
+             ratio: float = MINORITY_RATIO):
+    """(x, y, ek model parametreleri) döndürür. Girdiler değiştirilmez.
+    `ratio`: alt örnekleme ve SMOTE sonrası dolandırıcılık / normal oranı."""
     n_pos, n_neg = int(y.sum()), int((y == 0).sum())
     if strategy == "yok":
         return x, y, {}
     if strategy == "ağırlık":
         return x, y, {"scale_pos_weight": n_neg / n_pos}
     if strategy == "alt örnekleme":
-        rus = RandomUnderSampler(sampling_strategy=MINORITY_RATIO, random_state=seed)
+        rus = RandomUnderSampler(sampling_strategy=ratio, random_state=seed)
         rus.fit_resample(x.iloc[:, :1], y)            # yalnızca seçilen indeksler gerekli
         idx = np.sort(rus.sample_indices_)
         return x.iloc[idx], y.iloc[idx], {}
     if strategy == "SMOTE":
-        return (*smote(x, y, seed), {})
+        return (*smote(x, y, seed, ratio), {})
     raise ValueError(f"Bilinmeyen strateji: {strategy}")
 
 
-def smote(x: pd.DataFrame, y: pd.Series, seed: int = RANDOM_STATE):
+def smote(x: pd.DataFrame, y: pd.Series, seed: int = RANDOM_STATE,
+          ratio: float = MINORITY_RATIO):
     n_pos, n_neg = int(y.sum()), int((y == 0).sum())
-    n_new = int(MINORITY_RATIO * n_neg) - n_pos
+    n_new = int(ratio * n_neg) - n_pos
     if n_new <= 0:
         return x, y
 
@@ -121,11 +124,17 @@ def make_model(kind: str, seed: int = RANDOM_STATE, **overrides):
     raise ValueError(f"Bilinmeyen model: {kind}")
 
 
+def fit(kind: str, strategy: str, train: pd.DataFrame, features: list[str],
+        seed: int = RANDOM_STATE, ratio: float = MINORITY_RATIO, **overrides):
+    """Seçilen stratejiyle yeniden örnekler ve modeli eğitir."""
+    x, y, params = resample(train[features], train[TARGET], strategy, seed, ratio)
+    return make_model(kind, seed, **{**params, **overrides}).fit(x, y)
+
+
 def fit_predict(kind: str, strategy: str, train: pd.DataFrame, valid: pd.DataFrame,
-                features: list[str], seed: int = RANDOM_STATE, **overrides) -> np.ndarray:
-    x, y, params = resample(train[features], train[TARGET], strategy, seed)
-    model = make_model(kind, seed, **{**params, **overrides})
-    model.fit(x, y)
+                features: list[str], seed: int = RANDOM_STATE, ratio: float = MINORITY_RATIO,
+                **overrides) -> np.ndarray:
+    model = fit(kind, strategy, train, features, seed, ratio, **overrides)
     return model.predict_proba(valid[features])[:, 1]
 
 

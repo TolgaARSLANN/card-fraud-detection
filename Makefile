@@ -1,4 +1,4 @@
-.PHONY: install data quality process eda features baselines train test lint
+.PHONY: install data quality process eda features baselines train tune test lint
 
 install:
 	pip install -e ".[dev,ml,api,ui]"
@@ -23,6 +23,9 @@ baselines:
 
 train:
 	python -m card_fraud_detection.models.train
+
+tune:
+	python -m card_fraud_detection.models.tune
 
 test:
 	pytest -q
