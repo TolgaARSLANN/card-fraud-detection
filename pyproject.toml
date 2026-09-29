@@ -40,3 +40,8 @@ select = ["E", "F", "I", "B", "UP"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+# SHAP'ın kendi iç kodundan gelen uyarılar (bizim kodumuzla ilgili değil)
+filterwarnings = [
+    "ignore::PendingDeprecationWarning:shap.*",
+    "ignore:LightGBM binary classifier with TreeExplainer:UserWarning",
+]

@@ -1,5 +1,5 @@
 .PHONY: install data quality process eda features baselines train tune threshold errors final \
-        test lint
+        explain test lint
 
 install:
 	pip install -e ".[dev,ml,api,ui]"
@@ -37,6 +37,9 @@ errors:
 # Test bir kez değerlendirilir; ikinci çalıştırma reddedilir (bkz. models/final.py)
 final:
 	python -m card_fraud_detection.models.final
+
+explain:
+	jupyter nbconvert --to notebook --execute --inplace notebooks/02_model.ipynb
 
 test:
 	pytest -q

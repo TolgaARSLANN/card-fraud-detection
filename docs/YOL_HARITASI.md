@@ -456,7 +456,37 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
   - Çıktılar: `reports/test_sonuclari.md`, `reports/test_sonuclari.json`, `models/metadata.json`.
     Testler (`tests/test_final.py`, 5 test): bootstrap'in gerçek farkı yakalaması ve eşit
     modellerde sıfırı kapsaması, kilidin ikinci çalıştırmayı reddetmesi, aylık döküm, sayı biçimi.
-- [ ] **3.6 Açıklanabilirlik** (SHAP özet grafiği ve işlem bazlı waterfall grafiği, `notebooks/02_model.ipynb`)
+- [x] **3.6 Açıklanabilirlik** (SHAP özet grafiği ve işlem bazlı waterfall grafiği, `notebooks/02_model.ipynb`)
+  - Sonuç: `models/explain.py` (API'nin de kullanacağı açıklama modülü) ve
+    [`notebooks/02_model.ipynb`](../notebooks/02_model.ipynb) (`make explain`, ~50 sn);
+    4 grafik `reports/figures/4_shap_*.png`. Doğrulama bölmesinde; test kullanılmadı.
+  - Tasarım:
+    - Aynı bilgiyi taşıyan özellikler 12 **anlam grubuna** toplanır (ör. `amt` + `log_amt` →
+      "tutar"); SHAP toplanabilir olduğu için grup katkısı, özellik katkılarının toplamıdır.
+      Her ana özellik tam bir gruba girer (testle denetlenir).
+    - SHAP ham skoru (log-oran) açıklar; kalibrasyon monoton olduğu için nedenlerin sırası
+      değişmez. Toplanabilirlik doğrulandı: katkılar + temel değer = ham skor (en büyük hata
+      1,7e-13).
+    - "İlk 3 neden": skoru yukarı iten (pozitif katkılı) en fazla 3 grup, değerleriyle Türkçe
+      cümle (ör. "Son 24 saatte kartta 6 işlem, toplam $4.423").
+  - Bulgular:
+    - Model en çok tutara, saate ve son 24 saatteki harcamaya dayanıyor; dolandırıcılıklarda
+      son 24 saat ikinci sıraya çıkıyor. "Yeni satıcı / kategori" hiç katkı vermiyor
+      (simülatörde sinyal yok); ileride çıkarılabilir.
+    - **Model tutarın kategoriye bağlı anlamını öğrenmiş** (EDA §2): akaryakıtta $20 altı
+      güçlü dolandırıcılık katkısı alıyor (+7,7), çevrim içi alışverişte ancak $300 üstü
+      (≥$800'de +11,6).
+    - **Tek özelliğin katkısı tek başına yanıltıcı olabilir:** `amt_to_cat_median`'ın yüksek
+      değerleri negatif katkı alıyor, çünkü ilişkili özellikler katkıyı paylaşıyor. Gruplamanın
+      gerekçesi bu; grup düzeyindeki tablo tutarlı.
+    - **3.4'teki kör noktanın mekanizması:** Kaçan $780'lık vakada tutar +9 yukarı itiyor,
+      ama gündüz (−2,6) ve sakin son 24 saat (−3,2) bunu sıfırlıyor. Model
+      "dolandırıcılık = gece + patlama" kalıbını öğrenmiş.
+    - Patlamanın sakin ilk işlemi, tutar × kategori etkileşimiyle yakalanıyor; lojistik
+      regresyonun (2.3) kaçırdığı durum bu.
+  - Testler (`tests/test_explain.py`, 8 test): her özelliğin tam bir gruba girmesi, SHAP'ın
+    ham skora toplanması ve gruplamanın toplamı değiştirmemesi, nedenlerin pozitif / sıralı /
+    en fazla 3 olması, geçmişi olmayan kartın açıklaması, Türkçe sayı biçimi, uçtan uca açıklama.
 
 ## FAZ 4: Servis ve Arayüz · ~1 hafta
 
