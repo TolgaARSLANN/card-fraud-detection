@@ -257,7 +257,12 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
     - **Demografi ölçülebilir bir katkı sağlıyor:** Yaş ve cinsiyet eklenince PR-AUC 0,976 →
       0,985 (+0,009, tohum sapmasının ~10 katı; gerçek bir fark). İyimser eşikte maliyet
       $19.898 → $16.589. EDA'daki "ana model demografisiz" kararının bir bedeli olduğu artık
-      ölçüldü; kullanıp kullanmama kararı kullanıcıya bırakıldı (bkz. 3.2).
+      ölçüldü; kullanıp kullanmama kararı kullanıcıya bırakıldı.
+  - **Kararlar (kullanıcı onaylı):**
+    - Ana model **demografi kullanmayacak**. Yaş ve cinsiyet korunan özellikler; +0,009 PR-AUC'lik
+      kazanım, adalet riskine değmiyor. Kazanımın bedeli README'de rakamla belirtilecek.
+    - 3.2'de **LightGBM · alt örnekleme** ayarlanacak: XGBoost · yok ile istatistiksel olarak
+      berabere, 9 kat daha hızlı; aynı sürede çok daha fazla ayar denemesi yapılabilir.
   - Testler (`tests/test_train.py`, 10 test): stratejiler girdiyi değiştirmiyor ve hedef oranı
     tutturuyor; SMOTE yalnızca dolandırıcılık ekliyor, özgün satırlara ve normal işlemlere
     dokunmuyor, kategorik sütunlarda ara değer üretmiyor; 8 model × strateji kombinasyonunun
