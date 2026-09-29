@@ -183,9 +183,40 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
     seçilen $257 eşiğiyle recall 0,75, precision 0,16, patlamaların %98'i yakalanıyor. Hiç
     alarm vermemenin maliyeti $619.630, bu kuralla $67.702. → 2.3'te "yalnızca tutar" referans
     modeli ciddi bir çıta; asıl model bunu açıkça geçmeli.
-- [ ] **2.3 Referans modeller** (`models/baselines.py`)
+- [x] **2.3 Referans modeller** (`models/baselines.py`)
   - Kural tabanlı model, yalnızca tutar kullanan model, lojistik regresyon, Isolation Forest (denetimsiz)
   - Çıktı: `reports/baseline_sonuclari.md`
+  - Sonuç: [`reports/baseline_sonuclari.md`](../reports/baseline_sonuclari.md) (`make baselines`,
+    ~50 sn). Tüm modeller eğitim bölmesinde eğitildi, doğrulama bölmesinde ölçüldü.
+
+    | model | PR-AUC | günde 25 alarmla recall | eşik*: kaçan tutar | eşik*: maliyet | eşik*: ilk işlemde yakalanan |
+    |---|---|---|---|---|---|
+    | Lojistik regresyon | **0,625** | **%72** | $30.796 | **$61.996** | %53 |
+    | Isolation Forest | 0,415 | %51 | $77.819 | $131.639 | %49 |
+    | Kural tabanlı | 0,212 | %48 | $16.656 | $94.146 | %78 |
+    | Yalnızca tutar | 0,187 | %46 | $12.022 | $67.702 | %79 |
+
+    \* Maliyet eşiği doğrulamanın kendisinde seçildi (iyimser). Hiç alarm vermemenin maliyeti $619.630.
+  - Yorum ve Faz 3'e aktarılanlar:
+    - **Çıta: lojistik regresyon, PR-AUC 0,625.** Faz 3'teki model bunu açıkça geçmeli (3.5'teki
+      "bitti sayılır" ölçütü). Günde 25 alarmla dolandırıcılıkların %72'sini yakalıyor.
+    - **Doğrusal model, patlamanın ilk ve pahalı işlemini ıskalıyor.** Maliyeti en düşük model
+      olsa da "yalnızca tutar" kuralına çok yakın. Nedeni: daha az alarm verdiği için inceleme
+      maliyeti düşük, ama 2,5 kat daha fazla dolandırıcılık tutarı kaçırıyor. Patlamaları ilk
+      işlemde yakalama oranı %53, basit tutar kuralında %79. Model kart geçmişi özelliklerine
+      ağırlık veriyor, ama o işlemde geçmiş henüz sakin (EDA §4). Tutar ile kategori ve saat
+      arasındaki etkileşimi doğrusal bir model kuramıyor. → Faz 3'te ağaç tabanlı modelin somut
+      hedefi: ilk işlemde yakalama oranını ve kaçan tutarı iyileştirmek. Hata analizi (3.4)
+      bu ayrıma göre yapılacak.
+    - **Isolation Forest zayıf.** Etiket kullanmayan anomali skoru PR-AUC 0,415'te kaldı ve
+      maliyeti en yüksek model. Veride etiket varken denetimsiz yaklaşım rekabetçi değil;
+      Faz 3'te kullanılmayacak.
+    - **Kural tabanlı model, tutara çok az şey ekliyor** (PR-AUC 0,187 → 0,212). Üç işaretten
+      oluşan kaba skor, sıralama gücü sağlamıyor.
+  - Testler (`tests/test_baselines.py`, 5 test): ön işleme tüm özellikleri karşılıyor ve boş
+    değer bırakmıyor; kural skoru doğru sayılıyor; denetimli ve denetimsiz modeller sentetik
+    veride dolandırıcılığa daha yüksek skor veriyor; bir doğrulama satırının skoru diğer
+    doğrulama satırlarına bağlı değil (ön işleme yalnızca eğitimden öğreniyor).
 
 ## FAZ 3: Modelleme · ~1-1,5 hafta
 
