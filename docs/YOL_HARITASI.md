@@ -399,6 +399,26 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
 - [ ] **3.5 Final model ve tek seferlik test**
   - Çıktı: `models/model.joblib`, `models/metadata.json` (eşik, özellikler, metrikler)
   - Bitti sayılır: test PR-AUC değeri en iyi referans modelinkini açıkça geçiyor
+  - **Protokol (test verisine bakılmadan önce yazıldı ve commit edildi):**
+    - Model, kalibrasyon ve karar kuralı 3.3'te kaydedildiği gibi kullanılır: yalnızca eğitim
+      bölmesiyle eğitilmiş LightGBM · alt örnekleme (varsayılan parametreler), önsel düzeltme
+      kalibrasyonu, beklenen maliyet kuralı (olasılık × tutar ≥ $10). Hiçbir şey yeniden
+      eğitilmez veya ayarlanmaz.
+    - Referanslar: lojistik regresyon ve yalnızca tutar; ikisi de yalnızca eğitim bölmesiyle.
+    - **"Açıkça geçiyor" tanımı:** Test PR-AUC farkının (model − lojistik regresyon) %95 güven
+      aralığı tamamen sıfırın üstünde. Güven aralığı kart düzeyinde bootstrap ile (200 tekrar)
+      hesaplanır; aynı karttaki işlemler bağımsız olmadığı için işlemler değil kartlar
+      yeniden örneklenir.
+    - Raporlananlar: PR-AUC, ROC-AUC; günde 25 alarm bütçesiyle üç modelin karşılaştırması;
+      karar kuralıyla alarm, precision, recall, kaçan tutar, maliyet, patlama metrikleri;
+      doğrulama ve test PR-AUC'si; **aylara göre** sonuçlar (1.1'deki söz); cinsiyete göre
+      hata oranları (3.4'te izlenecek ölçüt olarak belirlendi).
+    - Test bir kez değerlendirilir: `models/final.py` çalıştığında `data/processed/` altında bir
+      kilit dosyası bırakır ve ikinci çalıştırmayı reddeder. Sonuç ne olursa olsun olduğu gibi
+      raporlanır; sonuca bakılarak model, eşik veya ölçüt değiştirilmez.
+    - Prova: Kod, test verisine dokunmadan (doğrulama verisi "test" yerine konularak, çıktılar
+      geçici dizine) baştan sona çalıştırıldı. Doğrulamadaki PR-AUC'ler önceki fazlarla birebir
+      aynı çıktı (0,9752 / 0,6254 / 0,1874); kilit ikinci çalıştırmayı reddetti.
 - [ ] **3.6 Açıklanabilirlik** (SHAP özet grafiği ve işlem bazlı waterfall grafiği, `notebooks/02_model.ipynb`)
 
 ## FAZ 4: Servis ve Arayüz · ~1 hafta
