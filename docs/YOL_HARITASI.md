@@ -220,8 +220,48 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
 
 ## FAZ 3: Modelleme · ~1-1,5 hafta
 
-- [ ] **3.1 Model × dengesizlik stratejisi** (`models/train.py`)
+- [x] **3.1 Model × dengesizlik stratejisi** (`models/train.py`)
   - LightGBM ve XGBoost × {sınıf ağırlığı, alt örnekleme, SMOTE (yalnızca eğitim kısmında)}
+  - Sonuç: [`reports/model_karsilastirma.md`](../reports/model_karsilastirma.md) (`make train`,
+    ~10 dk, en yüksek bellek 1,8 GB). Sabit hiperparametreler; doğrulama verisi erken durdurma
+    için kullanılmadı. "Yok" (dengeleme yapmamak) da stratejilere eklendi.
+
+    | model | PR-AUC | günde 25 alarmla recall | eşik*: maliyet | eşik*: ilk işlemde yakalanan | süre |
+    |---|---|---|---|---|---|
+    | XGBoost · yok | **0,976** | %93 | $19.898 | %95 | 65 sn |
+    | LightGBM · alt örnekleme | 0,975 | %93 | $18.472 | %94 | **7 sn** |
+    | XGBoost · ağırlık | 0,975 | %93 | $21.131 | %93 | 65 sn |
+    | LightGBM · yok | 0,974 | %93 | $21.022 | %94 | 40 sn |
+    | XGBoost · alt örnekleme | 0,974 | %93 | $18.403 | %94 | 6 sn |
+    | LightGBM · ağırlık | 0,970 | %93 | $23.291 | %92 | 36 sn |
+    | XGBoost · SMOTE | 0,968 | %92 | $22.154 | %91 | 80 sn |
+    | LightGBM · SMOTE | 0,968 | %92 | $24.633 | %91 | 55 sn |
+    | *Referans: lojistik regresyon* | *0,625* | *%72* | *$61.996* | *%53* | 50 sn |
+
+  - Yorum:
+    - **Ağaç modelleri çıtayı çok açık geçiyor:** PR-AUC 0,625 → ~0,975. Patlamayı ilk işlemde
+      yakalama %53 → %94-95; maliyet (iyimser eşikte) $62 bin → ~$18-20 bin. 2.3'te konan
+      hedef (ilk işlemde yakalama ve kaçan tutar) karşılandı.
+    - **Sızıntı kontrolü:** Bu sıçrama sızıntı işareti olabileceği için iki kontrol yapıldı.
+      Özellik önemleri EDA ile uyumlu (tutar %51, 24 sa tutar %15, kategori, kategori oranı,
+      gece); açıklanamayan baskın bir özellik yok. Özellik aileleri tek başına ~0,83'te kalıyor
+      (yalnızca işlem 0,834, yalnızca kart geçmişi 0,831), birlikte 0,975. Kazanç, özelliklerin
+      birleşiminden ve doğrusal modelin kuramadığı tutar × kategori × saat etkileşimlerinden geliyor.
+    - **Dengesizlik stratejisi az fark ediyor; SMOTE en kötüsü.** Ağaç modelleri dengesiz veriyle
+      zaten iyi başa çıkıyor. SMOTE her iki modelde de en düşük PR-AUC ve en yüksek maliyeti verdi;
+      sentetik örnekler yarar sağlamıyor. Faz 3.2'de kullanılmayacak.
+    - **En iyi iki kombinasyon istatistiksel olarak berabere.** Tohum kontrolü (3 tohum):
+      XGBoost · yok 0,9766 ± 0,0008; LightGBM · alt örnekleme 0,9749 ± 0,0016. Fark ~1 standart
+      sapma. LightGBM · alt örnekleme ise **9 kat daha hızlı** (7 sn / 65 sn) ve maliyeti biraz
+      daha düşük.
+    - **Demografi ölçülebilir bir katkı sağlıyor:** Yaş ve cinsiyet eklenince PR-AUC 0,976 →
+      0,985 (+0,009, tohum sapmasının ~10 katı; gerçek bir fark). İyimser eşikte maliyet
+      $19.898 → $16.589. EDA'daki "ana model demografisiz" kararının bir bedeli olduğu artık
+      ölçüldü; kullanıp kullanmama kararı kullanıcıya bırakıldı (bkz. 3.2).
+  - Testler (`tests/test_train.py`, 10 test): stratejiler girdiyi değiştirmiyor ve hedef oranı
+    tutturuyor; SMOTE yalnızca dolandırıcılık ekliyor, özgün satırlara ve normal işlemlere
+    dokunmuyor, kategorik sütunlarda ara değer üretmiyor; 8 model × strateji kombinasyonunun
+    her biri öğreniyor; doğrulama satırları birbirinden bağımsız skorlanıyor.
 - [ ] **3.2 Hiperparametre ayarı** (`models/tune.py`, Optuna, doğrulama kümesinde PR-AUC)
 - [ ] **3.3 Kalibrasyon ve eşik** (`models/threshold.py`)
   - İzotonik kalibrasyon, güvenilirlik eğrisi, doğrulama kümesinde maliyeti en aza indiren eşik

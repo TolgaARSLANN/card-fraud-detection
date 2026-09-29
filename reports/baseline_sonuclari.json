@@ -14,7 +14,7 @@
     "eşik*: maliyet ($)": 67701.96999999997,
     "eşik*: patlama recall": 0.9838709677419355,
     "eşik*: ilk işlemde yakalanan": 0.7903225806451613,
-    "süre (sn)": 0.0003728359999968234
+    "süre (sn)": 0.0003979469997830165
   },
   "Kural tabanlı": {
     "PR-AUC": 0.2120210440648834,
@@ -31,7 +31,7 @@
     "eşik*: maliyet ($)": 94146.48999999999,
     "eşik*: patlama recall": 0.9838709677419355,
     "eşik*: ilk işlemde yakalanan": 0.782258064516129,
-    "süre (sn)": 0.007956681999985449
+    "süre (sn)": 0.00976663399978861
   },
   "Lojistik regresyon": {
     "PR-AUC": 0.6251768559705704,
@@ -48,7 +48,7 @@
     "eşik*: maliyet ($)": 61996.14999999991,
     "eşik*: patlama recall": 0.9919354838709677,
     "eşik*: ilk işlemde yakalanan": 0.532258064516129,
-    "süre (sn)": 32.6659310069997
+    "süre (sn)": 50.09013754899979
   },
   "Isolation Forest": {
     "PR-AUC": 0.4151634101000603,
@@ -65,6 +65,6 @@
     "eşik*: maliyet ($)": 131639.40999999992,
     "eşik*: patlama recall": 0.9838709677419355,
     "eşik*: ilk işlemde yakalanan": 0.49193548387096775,
-    "süre (sn)": 14.602800736000063
+    "süre (sn)": 17.679377381999984
   }
 }

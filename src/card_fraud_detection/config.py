@@ -35,5 +35,7 @@ REVIEW_COST = 10.0
 # Bir kartta aralarında bu süreden az olan dolandırıcılıklar aynı patlama sayılır.
 # Kalite raporu §8: patlamalar en fazla ~2 gün sürüyor.
 BURST_GAP = "3D"
+# Günde incelenebilecek alarm sayısı (doğrulamada günde ~14 dolandırıcılık var)
+DAILY_BUDGET = 25
 
 RANDOM_STATE = 42

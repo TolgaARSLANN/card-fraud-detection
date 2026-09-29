@@ -32,19 +32,12 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
 
-from card_fraud_detection.config import RANDOM_STATE, REPORTS_DIR, REVIEW_COST, TARGET, TIME_COL
-from card_fraud_detection.evaluation.metrics import (
-    alert_metrics,
-    best_threshold_by_cost,
-    daily_budget_alerts,
-    evaluate,
-)
+from card_fraud_detection.config import RANDOM_STATE, REPORTS_DIR, TARGET, TIME_COL
+from card_fraud_detection.evaluation.compare import comparison_sections, comparison_table
 from card_fraud_detection.features.build import FEATURES, FEATURES_PATH
-from card_fraud_detection.reporting import to_markdown
 
 REPORT_MD = REPORTS_DIR / "baseline_sonuclari.md"
 REPORT_JSON = REPORTS_DIR / "baseline_sonuclari.json"
-DAILY_BUDGET = 25          # günde incelenebilecek alarm sayısı (doğrulamada ~14 dolandırıcılık/gün)
 
 # Kural tabanlı modelin eşikleri: EDA §1 ve §4 (yalnızca eğitim bölmesi)
 RULE_MIN_AMT = 200.0
@@ -142,61 +135,15 @@ def score_models(train: pd.DataFrame, valid: pd.DataFrame) -> tuple[dict, dict]:
     return scores, seconds
 
 
-def summarize(valid: pd.DataFrame, scores: dict, seconds: dict) -> pd.DataFrame:
-    y, amt = valid[TARGET].to_numpy(), valid["amt"].to_numpy()
-    day = valid[TIME_COL].dt.date.to_numpy()
-    rows = {}
-    for name, s in scores.items():
-        budget = alert_metrics(y, daily_budget_alerts(s, day, DAILY_BUDGET), amt)
-        thr = best_threshold_by_cost(y, s, amt)
-        m = evaluate(valid, s, thr)
-        rows[name] = {
-            "PR-AUC": m["pr_auc"], "ROC-AUC": m["roc_auc"], "recall@p0.5": m["recall@p0.5"],
-            "bütçe: recall": budget["recall"], "bütçe: tutar recall": budget["tutar_recall"],
-            "bütçe: precision": budget["precision"],
-            "eşik*: alarm": m["alarm"], "eşik*: precision": m["precision"],
-            "eşik*: recall": m["recall"], "eşik*: tutar recall": m["tutar_recall"],
-            "eşik*: kaçan tutar ($)": m["kacan_tutar"], "eşik*: maliyet ($)": m["maliyet"],
-            "eşik*: patlama recall": m["patlama_recall"],
-            "eşik*: ilk işlemde yakalanan": m["ilk_islemde_yakalanan"],
-            "süre (sn)": seconds[name],
-        }
-    return pd.DataFrame(rows).T
-
-
 def build_report(table: pd.DataFrame, valid: pd.DataFrame) -> str:
-    n_days = valid[TIME_COL].dt.date.nunique()
-    no_alert_cost = valid.loc[valid[TARGET] == 1, "amt"].sum()
-    rank = table.sort_values("PR-AUC", ascending=False)
-    main = rank[["PR-AUC", "ROC-AUC", "recall@p0.5", "bütçe: recall", "bütçe: tutar recall",
-                 "bütçe: precision", "süre (sn)"]]
-    thr = rank[[c for c in rank.columns if c.startswith("eşik*")]].copy()
-    for col in ["eşik*: alarm", "eşik*: kaçan tutar ($)", "eşik*: maliyet ($)"]:
-        thr[col] = thr[col].round().astype(int)
-    main.index.name = thr.index.name = "model"
     return "\n".join([
         "# Referans Model Sonuçları",
         "",
         "_Üreten: `python -m card_fraud_detection.models.baselines` · Eğitim: eğitim bölmesi · "
         f"Ölçüm: doğrulama bölmesi ({len(valid):,} işlem, {int(valid[TARGET].sum()):,} "
-        f"dolandırıcılık, {n_days} gün)_",
+        f"dolandırıcılık, {valid[TIME_COL].dt.date.nunique()} gün)_",
         "",
-        "## 1. Eşikten bağımsız karşılaştırma (ana ölçüt)",
-        "",
-        f"Bütçe: Her gün en yüksek skorlu **{DAILY_BUDGET}** işlem incelenir "
-        f"(doğrulamada günde ortalama {valid[TARGET].sum() / n_days:.1f} dolandırıcılık var).",
-        "",
-        to_markdown(main, ".3f"),
-        "",
-        "## 2. Maliyete göre seçilen eşikte (iyimser)",
-        "",
-        f"\\* Eşik, maliyeti (kaçan tutar + alarm başına ${REVIEW_COST:g}) en aza indirecek "
-        "biçimde **doğrulamanın kendisinde** seçildi. Bu yüzden sonuçlar iyimserdir; asıl model "
-        "için eşik Faz 3.3'te doğrulamada seçilip testte sabit tutulacak. "
-        f"Hiç alarm vermemenin maliyeti: ${no_alert_cost:,.0f}.",
-        "",
-        to_markdown(thr, ".3f"),
-        "",
+        *comparison_sections(table, valid),
     ])
 
 
@@ -207,7 +154,7 @@ def main() -> None:
     valid = f[f["split"] == "valid"].reset_index(drop=True)
     print(f"Eğitim {len(train):,} · doğrulama {len(valid):,} işlem")
     scores, seconds = score_models(train, valid)
-    table = summarize(valid, scores, seconds)
+    table = comparison_table(valid, scores, seconds)
 
     REPORT_MD.write_text(build_report(table, valid) + "\n", encoding="utf-8")
     REPORT_JSON.write_text(json.dumps(table.to_dict(orient="index"), ensure_ascii=False,
