@@ -595,6 +595,30 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
     uygulamaya karşı), API kapalıyken anlaşılır hata, panelin API kapalıyken çökmemesi
     (Streamlit `AppTest`), sıfırlama ve "başlangıç anı".
 
+## Kalite turu (FAZ 5 öncesi)
+
+Ölçüt: sorunsuzluk. Şüpheler önce gerçek kodla sınandı, doğrulananlar düzeltildi ve her biri
+kalıcı bir testle güvenceye alındı.
+
+- [x] **A. Servis sağlamlığı**
+  - **Saat dilimli zaman API'yi çökertiyordu** (`...Z`, `...+03:00` → HTTP 500; saat
+    dilimsiz geçmişle birleştirilemiyordu). Veri setindeki zamanlar saat dilimsiz yerel
+    saat; sessizce çevirmek saat ve gece özelliklerini yanlış hesaplatacağı için saat dilimli
+    zaman, ne gönderileceğini söyleyen bir 422 ile reddediliyor.
+  - **Eşzamanlı isteklerde kart geçmişi işlem kaybediyordu** (aynı karta 8 iş parçacığı ×
+    10 işlem → 80 yerine 75 kayıt, tekrarlanan işlem numaraları). Kart geçmişinin okunup
+    güncellendiği kısım kilit altında; model tahmini ve SHAP kilit dışında. Test, kilit
+    etkisizleştirildiğinde 5 denemenin 5'inde başarısız oluyor (hatayı güvenilir yakalıyor).
+  - **Geçersiz girdi kabul ediliyordu:** 10²⁰ ya da negatif kart numarası, sonsuz tutar, boş
+    satıcı adı. Şemada sınırlar: kart 1…2⁶³−1, tutar sonlu ve 0 < tutar ≤ 10⁹, satıcı 1-200
+    karakter.
+  - **Sonsuz tutar 422 yerine 500 döndürüyordu:** FastAPI 422 yanıtına ham girdiyi koyuyor,
+    `inf` JSON'a yazılamıyordu. Özel işleyici yanıttan ham girdiyi çıkarıyor (alan, tür ve
+    mesaj kalıyor); gönderilen veri yanıtta yansıtılmıyor.
+  - Bilerek değiştirilmeyenler: gelecek / çok eski tarihler ve kartın son işleminden eski
+    işlemler kabul edilir (model bu alanları kullanmaz; özellikler yalnızca o işlemden önceki
+    geçmişle hesaplanır, gecikmeli gelen işlemler gerçek sistemlerde olağandır).
+
 ## FAZ 5: Yayına Alma ve Belgeler · ~3-4 gün
 
 - [ ] **5.1 Docker** (`Dockerfile`, `docker-compose.yml`: api + ui)

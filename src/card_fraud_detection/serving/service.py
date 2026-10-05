@@ -7,6 +7,7 @@ Model, kalibrasyon ve karar kuralı Faz 3.3'te kaydedildiği gibi kullanılır (
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -59,18 +60,23 @@ class ScoringService:
         self._explainer = explainer(model)
         self._initial = store.snapshot()
         self.transactions: pd.DataFrame | None = None     # load() ile yüklenirse dolar
+        # FastAPI eşzamanlı istekleri iş parçacıklarında işler. Skorlama + geçmişe ekleme ve
+        # sıfırlama tek kilit altında: aksi hâlde aynı karta eşzamanlı gelen işlemler geçmişte
+        # kaybolur ve işlem numaraları tekrarlanır. Bedeli: istekler sırayla işlenir (~50 ms).
+        self._lock = threading.RLock()
 
     def reset(self, until: str | pd.Timestamp | None = None) -> None:
         """Kart geçmişini başlangıç durumuna döndürür. `until` verilirse geçmiş, o ana kadarki
         tüm işlemlerle yeniden kurulur (panelde akışı istenen andan başlatmak için; atlanan
         işlemler skorlanmaz ama geçmişe girer, özellikler tutarlı kalır)."""
-        if until is None:
-            self.store.restore(self._initial)
-            return
-        if self.transactions is None:
-            raise ValueError("Bu servis işlem dosyasıyla yüklenmedi; `until` kullanılamaz")
-        rebuilt = CardHistoryStore.from_transactions(self.transactions, until)
-        self.store.restore(rebuilt.snapshot())
+        with self._lock:
+            if until is None:
+                self.store.restore(self._initial)
+                return
+            if self.transactions is None:
+                raise ValueError("Bu servis işlem dosyasıyla yüklenmedi; `until` kullanılamaz")
+            rebuilt = CardHistoryStore.from_transactions(self.transactions, until)
+            self.store.restore(rebuilt.snapshot())
 
     @classmethod
     def load(cls, models_dir: Path = MODELS_DIR, transactions_path: Path = TRANSACTIONS_PATH,
@@ -92,12 +98,16 @@ class ScoringService:
 
     def features_for(self, tx: dict) -> pd.DataFrame:
         """Yeni işlemin özellik satırı (1 satırlık tablo), kart geçmişiyle birlikte hesaplanır."""
-        frame, pos = self.store.with_new(tx)
+        with self._lock:
+            frame, pos = self.store.with_new(tx)
         feats = build_features(frame, self.stats)
         return feats.iloc[[pos]]
 
     def score(self, tx: dict, save: bool = True) -> dict:
-        row = self.features_for(tx)
+        # Özellik hesabı ile geçmişe ekleme arasında başka bir işlem araya girmemeli
+        with self._lock:
+            row = self.features_for(tx)
+            tx_id = self.store.add(tx) if save else None
         x = row[self.features]
         raw = float(self.model.predict_proba(x)[:, 1][0])
         p = float(self.calibrator.transform(np.array([raw]))[0])
@@ -106,7 +116,6 @@ class ScoringService:
         if alert:
             contrib = group_contributions(shap_values(self._explainer, x)).iloc[0]
             reasons = top_reasons(contrib, row.iloc[0])
-        tx_id = self.store.add(tx) if save else None
         return {"islem_no": tx_id, "olasilik": p, "beklenen_kayip": p * float(tx["amt"]),
                 "karar": "alarm" if alert else "onay", "risk_seviyesi": risk_level(p),
                 "nedenler": reasons}

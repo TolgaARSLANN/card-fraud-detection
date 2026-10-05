@@ -89,6 +89,58 @@ def test_reset_until_rebuilds_history_from_transactions(serving_setup, make_serv
         service.reset(until=cut_time)
 
 
+def test_concurrent_saves_lose_nothing(serving_setup, make_service):
+    """Aynı karta eşzamanlı gelen işlemler kaybolmamalı, işlem numaraları tekrarlanmamalı."""
+    import threading
+
+    service = make_service(serving_setup[0])
+    n0, card0 = service.store.n_transactions, len(service.store.history(1001))
+
+    def worker(k):
+        for i in range(10):
+            service.score({TIME: pd.Timestamp("2020-02-05") + pd.Timedelta(minutes=k * 10 + i),
+                           "cc_num": 1001, "amt": 20.0, "category": "grocery_pos",
+                           "merchant": "a"})
+
+    threads = [threading.Thread(target=worker, args=(k,)) for k in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    hist = service.store.history(1001)
+    assert service.store.n_transactions == n0 + 80
+    assert len(hist) == card0 + 80 and hist["tx_id"].is_unique
+
+
+@pytest.mark.parametrize("change, message", [
+    ({"trans_date_trans_time": "2020-02-01T23:30:00Z"}, "saat dilimi"),
+    ({"trans_date_trans_time": "2020-02-01T23:30:00+03:00"}, "saat dilimi"),
+    ({"cc_num": 10**20}, "less than or equal"),
+    ({"cc_num": -5}, "greater than or equal"),
+    ({"merchant": ""}, "at least 1"),
+    ({"amt": 0}, "greater than"),
+])
+def test_invalid_input_is_rejected_with_422(serving_setup, make_service, change, message):
+    app.state.service = make_service(serving_setup[0])
+    body = {"cc_num": 1001, "trans_date_trans_time": "2020-02-01T23:30:00", "amt": 50,
+            "category": "grocery_pos", "merchant": "a", **change}
+    with TestClient(app) as client:
+        r = client.post("/score", json=body, params={"kaydet": False})
+    app.state.service = None
+    assert r.status_code == 422 and message in r.text
+
+
+def test_infinite_amount_is_rejected(serving_setup, make_service):
+    app.state.service = make_service(serving_setup[0])
+    raw = ('{"cc_num":1001,"trans_date_trans_time":"2020-02-01T23:30:00","amt":Infinity,'
+           '"category":"grocery_pos","merchant":"a"}')
+    with TestClient(app) as client:
+        r = client.post("/score", content=raw, headers={"Content-Type": "application/json"})
+    app.state.service = None
+    assert r.status_code == 422 and "finite" in r.text
+    assert "input" not in r.json()["detail"][0]          # ham girdi yanıtta yansıtılmaz
+
+
 @pytest.mark.parametrize("p, level", [(0.0, "düşük"), (0.0099, "düşük"), (0.01, "orta"),
                                       (0.19, "orta"), (0.2, "yüksek"), (1.0, "yüksek")])
 def test_risk_level(p, level):

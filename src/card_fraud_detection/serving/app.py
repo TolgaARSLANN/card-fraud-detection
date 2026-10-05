@@ -14,6 +14,8 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from card_fraud_detection.serving.schemas import Health, ScoreResponse, Transaction
 from card_fraud_detection.serving.service import ScoringService
@@ -27,6 +29,15 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Kart Dolandırıcılığı Skorlama API'si", version="1.0", lifespan=lifespan)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """422 yanıtında ham girdi geri gönderilmez. FastAPI varsayılanı girdiyi aynen koyar;
+    `Infinity` gibi JSON'a yazılamayan bir değer gelince 422 yerine 500 dönüyordu. Ayrıca
+    gönderilen veriyi yanıtta yansıtmamak daha güvenli."""
+    errors = [{k: e[k] for k in ("type", "loc", "msg") if k in e} for e in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": errors})
 
 
 def get_service(request: Request) -> ScoringService:
