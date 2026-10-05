@@ -14,6 +14,7 @@ from card_fraud_detection.ui.logic import (
     alert_queue,
     mask_card,
     money,
+    resync_point,
     review_cost_curve,
     review_cost_point,
     stream_kpis,
@@ -105,6 +106,47 @@ def test_client_against_api(serving_setup, make_service):
         with pytest.raises(ApiError, match="Bilinmeyen kategori"):
             client.score({**tx, "category": "yok"})
     app.state.service = None
+
+
+def test_resync_point():
+    t = pd.Series(pd.to_datetime(["2020-07-01 10:00", "2020-07-01 10:05", "2020-07-01 10:05",
+                                  "2020-07-01 11:00"]))
+    assert resync_point(t, 0) == (None, 0)
+    assert resync_point(t, 1) == (t[1], 1)
+    # İmleç aynı saniyedeki iki işlemin arasında: o saniyenin ilk işlemine geri alınır
+    assert resync_point(t, 2) == (t[1], 1)
+    until, cursor = resync_point(t, 4)               # akışın sonu: hepsi geçmişte
+    assert cursor == 4 and until > t[3]
+
+
+@pytest.mark.parametrize("restart_at", ["tie", "plain"])
+def test_resync_after_api_restart_matches_uninterrupted_run(serving_setup, make_service,
+                                                            restart_at):
+    """API akışın ortasında yeniden başlarsa, panelin eşitlemesinden sonra skorlanan işlemler
+    kesintisiz çalışmadakiyle aynı olasılığı almalı (geçmiş eksik kalmamalı)."""
+    tx = serving_setup[0]
+    cols = ["tx_id", "trans_date_trans_time", "cc_num", "amt", "category", "merchant"]
+    start = len(tx) - 120
+    history, stream = tx.iloc[:start], tx.iloc[start:].reset_index(drop=True)
+    times = stream["trans_date_trans_time"]
+    ties = np.flatnonzero(times.duplicated().to_numpy())
+    k = int(ties[0]) if restart_at == "tie" else 60   # sentetik veride aynı saniyeli işlem var
+    assert restart_at != "tie" or times[k] == times[k - 1]
+    inputs = [r[cols[1:]].to_dict() for _, r in stream.iterrows()]
+
+    full = make_service(history)
+    expected = [full.score(t)["olasilik"] for t in inputs]
+
+    before = make_service(history)
+    for t in inputs[:k]:
+        before.score(t)
+    restarted = make_service(history)                # API yeniden başladı: geçmiş başa döndü
+    restarted.transactions = tx[cols]
+    until, cursor = resync_point(times, k)
+    restarted.reset(until)
+    assert cursor <= k and restarted.store.n_transactions == start + cursor
+    got = [restarted.score(t)["olasilik"] for t in inputs[cursor:]]
+    np.testing.assert_allclose(got, expected[cursor:], rtol=1e-9)
 
 
 def test_client_unreachable_raises_api_error():

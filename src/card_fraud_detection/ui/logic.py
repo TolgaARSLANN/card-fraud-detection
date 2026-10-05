@@ -17,6 +17,23 @@ def mask_card(cc_num) -> str:
     return f"•••• {str(int(cc_num))[-4:]}"
 
 
+def resync_point(times: pd.Series, cursor: int) -> tuple[pd.Timestamp | None, int]:
+    """API'nin kart geçmişi akışla uyuşmadığında (ör. API yeniden başladı) geçmişin hangi ana
+    kadar yeniden kurulacağı ve akışın hangi sıradan süreceği.
+
+    API `until` öncesindeki tüm işlemleri yükler. İmleçteki işlemle aynı anda gelen ve zaten
+    skorlanmış işlemler varsa imleç o anın ilk işlemine geri alınır; böylece hiçbir işlem
+    geçmişte hem var hem de yeniden skorlanıyor olmaz. `times` zamana göre sıralı olmalıdır.
+    Dönen zaman None ise varsayılan başlangıca (test dönemi başı) dönülür.
+    """
+    if cursor <= 0:
+        return None, 0
+    if cursor >= len(times):
+        return times.iloc[-1] + pd.Timedelta(microseconds=1), len(times)
+    t = times.iloc[cursor]
+    return t, int(times.searchsorted(t, side="left"))
+
+
 def stream_kpis(results: pd.DataFrame, review_cost: float = REVIEW_COST) -> dict:
     """Akıştaki işlemlerin özeti. `results` sütunları: karar, is_fraud, amt."""
     if results.empty:

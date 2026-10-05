@@ -635,6 +635,19 @@ kalıcı bir testle güvenceye alındı.
   - **Panelde kullanımdan kalkan bileşen:** `st.components.v1.html` (Streamlit, 2026-06-01
     sonrasında kaldırılacağını bildiriyor) yerine `st.html(..., unsafe_allow_javascript=True)`
     kullanılıyor. Tarayıcıda doğrulandı: `lang="tr"`, iframe yok, "İŞLEM" doğru yazılıyor.
+- [x] **C. Panel ile API'nin geçmiş uyumu**
+  - **API yeniden başlayınca panel eksik geçmişle skorlamayı sürdürüyordu.** API'nin kart
+    geçmişi başa dönüyor, panel ise kaldığı sıradan işlem göndermeye devam ediyordu. Son
+    işlemlerin "son 1 saat / 24 saat / 7 gün" gibi özellikleri sessizce yanlış hesaplanıyordu.
+    Başka bir sekmenin sıfırlaması da aynı sonucu doğuruyordu. Panel artık API'de olması
+    gereken işlem sayısını tutuyor (son sıfırlama + kaydedilenler). Uyuşmazlıkta akış
+    durduruluyor ve tek düğmeyle geçmiş, kalınan ana kadar yeniden kuruluyor. Aynı saniyede
+    gelmiş işlemler varsa imleç o saniyenin ilk işlemine geri alınıyor.
+  - Test: API akışın ortasında (aynı saniyeli işlemlerin arasında da) yeniden başlatılıp
+    eşitlendiğinde sonraki olasılıklar, kesintisiz çalışmadakilerle birebir aynı. Eşitleme
+    kaldırıldığında ya da aynı saniyede geri alma yapılmadığında test başarısız oluyor.
+    Tarayıcıda da denendi: 50 işlem → API yeniden başlatıldı → uyarı çıktı, "Sonraki"
+    kilitlendi → eşitleme → 50 işlem daha. Sonuçta panel 100, API 1.296.675 + 100 işlem.
 
 ## FAZ 5: Yayına Alma ve Belgeler · ~3-4 gün
 

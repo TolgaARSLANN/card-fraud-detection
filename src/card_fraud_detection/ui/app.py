@@ -26,6 +26,7 @@ from card_fraud_detection.ui.client import ApiClient, ApiError
 from card_fraud_detection.ui.logic import (
     alert_queue,
     money,
+    resync_point,
     review_cost_curve,
     review_cost_point,
     stream_kpis,
@@ -122,7 +123,7 @@ def show_result(res: dict, amt: float) -> None:
 
 client = get_client()
 try:
-    client.health()
+    api_health = client.health()
 except ApiError as exc:
     html(theme.masthead("bağlantı yok"))
     st.error(f"{exc}\n\nAPI'yi başlatmak için ayrı bir terminalde: `make api`")
@@ -140,8 +141,12 @@ with tab_stream:
         # Yeni oturum: akış imleci baştan başlar; API'nin geçmişi de başa dönmeli, yoksa önceki
         # oturumda skorlanan işlemler geçmişe ikinci kez eklenir. (Panel tek kullanıcılı bir
         # demodur; aynı anda iki sekme birbirinin geçmişini sıfırlar.)
-        client.reset()
+        state.api_n = client.reset()["islem"]
         state.cursor, state.results = 0, []
+    # API'de olması gereken işlem sayısı (son sıfırlama + bu oturumda kaydedilenler). Uymuyorsa
+    # API yeniden başlamış ya da başka bir sekme geçmişi değiştirmiştir; o hâlde gönderilen
+    # işlemlerin özellikleri eksik geçmişle hesaplanırdı. Akış durdurulur, eşitleme önerilir.
+    in_sync = api_health["islem"] == state.api_n
 
     html(theme.section("Test dönemi · 21 Haziran – 31 Aralık 2020", "Akış",
                        "İşlemler sırayla API'ye gönderilir; her biri skorlanıp kartın "
@@ -157,14 +162,30 @@ with tab_stream:
         if s3.button("Bu andan başlat", use_container_width=True):
             start = datetime.combine(start_day, start_hour)
             with st.spinner("Kart geçmişi o ana kadar yeniden kuruluyor…"):
-                client.reset(until=start)
+                state.api_n = client.reset(until=start)["islem"]
             state.cursor = int(stream[TIME_COL].searchsorted(pd.Timestamp(start)))
             state.results = []
             st.rerun()
 
+    if not in_sync:
+        st.warning(
+            f"API'deki kart geçmişi bu oturumla uyuşmuyor ({tr_num(api_health['islem'])} işlem "
+            f"var, {tr_num(state.api_n)} bekleniyordu). API yeniden başlamış ya da başka bir "
+            "sekme geçmişi değiştirmiş olabilir. Bu hâlde skorlanan işlemlerin özellikleri "
+            "eksik geçmişle hesaplanır; akış, geçmiş eşitlenene kadar durduruldu.")
+        if st.button("Geçmişi kaldığım yere kadar yeniden kur"):
+            until, cursor = resync_point(stream[TIME_COL], state.cursor)
+            with st.spinner("Kart geçmişi yeniden kuruluyor…"):
+                h = client.reset(until=until.to_pydatetime()) if until is not None \
+                    else client.reset()
+            # İmleç geri alındıysa o işlemler yeniden skorlanacak: sonuçlardan çıkar
+            state.results = state.results[:max(0, len(state.results) - (state.cursor - cursor))]
+            state.cursor, state.api_n = cursor, h["islem"]
+            st.rerun()
+
     c1, c2, c3 = st.columns([2, 1, 1], vertical_alignment="bottom")
     batch = c1.select_slider("Her adımda işlem", [10, 25, 50, 100, 200], value=50)
-    if c2.button("Sonraki →", type="primary", use_container_width=True):
+    if c2.button("Sonraki →", type="primary", use_container_width=True, disabled=not in_sync):
         chunk = stream.iloc[state.cursor:state.cursor + batch]
         bar = st.progress(0.0, text="Skorlanıyor…")
         try:
@@ -173,12 +194,13 @@ with tab_stream:
                 res = client.score({**tx, TIME_COL: tx[TIME_COL].to_pydatetime()})
                 state.results.append({**tx, TARGET: int(row[TARGET]), **res})
                 state.cursor += 1          # hata olursa aynı işlem ikinci kez gönderilmesin
+                state.api_n += 1
                 bar.progress(i / len(chunk), text=f"Skorlanıyor… {i}/{len(chunk)}")
         except ApiError as exc:
             st.error(str(exc))
         bar.empty()
     if c3.button("↺ Baştan", use_container_width=True):
-        client.reset()
+        state.api_n = client.reset()["islem"]
         state.cursor, state.results = 0, []
         st.rerun()
 
