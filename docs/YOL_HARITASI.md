@@ -528,10 +528,16 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
   - Canlı akış ve alarm kuyruğu, işlem inceleme (SHAP), eşik–maliyet kaydırıcısı
   - Sonuç: `make ui` (http://localhost:8501). Skor dosyası: `make panel-data`.
     - **Tek komut** (`scripts/ui.sh`): API çalışmıyorsa arka planda başlatıp hazır olmasını
-      bekler, sonra paneli açar; Ctrl+C ile yalnızca kendi başlattığı API'yi kapatır. Başka bir
+      bekler, sonra paneli açar; çıkışta yalnızca kendi başlattığı süreçleri kapatır. Başka bir
       terminalde `make api` ile açılmış bir API varsa onu kullanır, ona dokunmaz. Model dosyası
-      yoksa ne yapılacağını söyleyerek durur. İki senaryo da (API kapalı / açık) Ctrl+C
-      sinyaliyle sınandı; arkada süreç kalmadı.
+      yoksa ne yapılacağını söyleyerek durur.
+    - Sınama (gerçek terminal davranışı taklit edilerek, her senaryo sonrası ortam temizliği
+      doğrulanarak): Ctrl+C, yalnızca betiğe SIGINT, SIGTERM, terminalin kapanması (SIGHUP) ve
+      dış API açıkken Ctrl+C; hepsinde arkada süreç kalmadı, dış API çalışmaya devam etti.
+      Panel Ctrl+C'den sonra ~0,7 sn'de kapanıyor.
+    - Bulunan hata: İlk sürümde panel ön planda çalışıyordu; sinyal yalnızca betiğe gelince
+      (ör. `kill`) bash panelin bitmesini beklediği için temizlik çalışmıyor, panel ve API asılı
+      kalıyordu. Panel artık arka planda çalışıp beklenir, sinyaller betikte yakalanır.
     - Panel yalnızca `localhost`'a bağlanır (Streamlit varsayılanı tüm ağ arayüzleri ve dış
       adres gösteriyordu); Windows tarayıcısından erişim doğrulandı. API zaten yalnızca yerel.
     - Panel modeli doğrudan yüklemez, API'ye HTTP ile bağlanır (Faz 5'teki iki ayrı servise
