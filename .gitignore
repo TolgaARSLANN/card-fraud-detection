@@ -13,3 +13,6 @@ models/*.txt
 .env
 kaggle.json
 .api.log
+
+# pip install . (düzenlenemez kurulum) çıktısı
+build/
