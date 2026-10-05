@@ -65,6 +65,15 @@ class CardHistoryStore:
         self._next_id += 1
         return tx_id
 
+    def snapshot(self) -> tuple[dict, int]:
+        """Anlık durum. `add` kart tablolarını yerinde değiştirmez, yenisiyle değiştirir; bu
+        yüzden sözlüğün sığ kopyası yeterlidir (veri kopyalanmaz)."""
+        return dict(self._cards), self._next_id
+
+    def restore(self, state: tuple[dict, int]) -> None:
+        cards, next_id = state
+        self._cards, self._next_id = dict(cards), next_id
+
     @property
     def n_cards(self) -> int:
         return len(self._cards)

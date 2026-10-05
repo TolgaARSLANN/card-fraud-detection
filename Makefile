@@ -1,5 +1,5 @@
 .PHONY: install data quality process eda features baselines train tune threshold errors final \
-        explain api consistency test lint
+        explain api consistency panel-data ui test lint
 
 install:
 	pip install -e ".[dev,ml,api,ui]"
@@ -46,6 +46,13 @@ api:
 
 consistency:
 	python -m card_fraud_detection.serving.consistency
+
+panel-data:
+	python -m card_fraud_detection.ui.prepare
+
+# Önce ayrı bir terminalde: make api
+ui:
+	streamlit run src/card_fraud_detection/ui/app.py --server.port 8501
 
 test:
 	pytest -q

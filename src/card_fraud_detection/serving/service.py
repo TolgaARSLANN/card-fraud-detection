@@ -57,6 +57,20 @@ class ScoringService:
         self.stats, self.store, self.features = stats, store, features
         self.metadata = metadata or {}
         self._explainer = explainer(model)
+        self._initial = store.snapshot()
+        self.transactions: pd.DataFrame | None = None     # load() ile yüklenirse dolar
+
+    def reset(self, until: str | pd.Timestamp | None = None) -> None:
+        """Kart geçmişini başlangıç durumuna döndürür. `until` verilirse geçmiş, o ana kadarki
+        tüm işlemlerle yeniden kurulur (panelde akışı istenen andan başlatmak için; atlanan
+        işlemler skorlanmaz ama geçmişe girer, özellikler tutarlı kalır)."""
+        if until is None:
+            self.store.restore(self._initial)
+            return
+        if self.transactions is None:
+            raise ValueError("Bu servis işlem dosyasıyla yüklenmedi; `until` kullanılamaz")
+        rebuilt = CardHistoryStore.from_transactions(self.transactions, until)
+        self.store.restore(rebuilt.snapshot())
 
     @classmethod
     def load(cls, models_dir: Path = MODELS_DIR, transactions_path: Path = TRANSACTIONS_PATH,
@@ -68,11 +82,13 @@ class ScoringService:
         metadata = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
         tx = pd.read_parquet(transactions_path, columns=[
             "tx_id", "trans_date_trans_time", "cc_num", "amt", "category", "merchant"])
-        return cls(bundle["model"], Calibrator.from_state(bundle["calibrator"]),
-                   Decision(decision["kural"], decision.get("esik"),
-                            decision.get("inceleme_ucreti", REVIEW_COST)),
-                   stats, CardHistoryStore.from_transactions(tx, history_until),
-                   bundle["features"], {**metadata, "karar": decision})
+        service = cls(bundle["model"], Calibrator.from_state(bundle["calibrator"]),
+                      Decision(decision["kural"], decision.get("esik"),
+                               decision.get("inceleme_ucreti", REVIEW_COST)),
+                      stats, CardHistoryStore.from_transactions(tx, history_until),
+                      bundle["features"], {**metadata, "karar": decision})
+        service.transactions = tx
+        return service
 
     def features_for(self, tx: dict) -> pd.DataFrame:
         """Yeni işlemin özellik satırı (1 satırlık tablo), kart geçmişiyle birlikte hesaplanır."""

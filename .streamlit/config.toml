@@ -1,0 +1,6 @@
+[theme]
+# Panelde turuncu/kırmızı "alarm" anlamı taşır; sıradan düğmeler varsayılan kırmızı olmasın
+primaryColor = "#2a78d6"
+
+[browser]
+gatherUsageStats = false

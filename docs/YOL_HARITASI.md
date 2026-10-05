@@ -524,8 +524,45 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
     CI artık `api` bağımlılıklarını da kuruyor.
   - Testler (`tests/test_serving.py`, 10 test): tutarlılık, geçmişi olmayan kart, karar /
     nedenler / kaydetme, risk seviyesi sınırları, API uç noktaları ve hata durumları.
-- [ ] **4.2 Streamlit paneli** (`ui/`)
+- [x] **4.2 Streamlit paneli** (`ui/`)
   - Canlı akış ve alarm kuyruğu, işlem inceleme (SHAP), eşik–maliyet kaydırıcısı
+  - Sonuç: `make api` + `make ui` (http://localhost:8501). Skor dosyası: `make panel-data`.
+    - Panel modeli doğrudan yüklemez, API'ye HTTP ile bağlanır (Faz 5'teki iki ayrı servise
+      hazır). İş mantığı test edilebilir olsun diye ayrı: `ui/client.py` (API istemcisi),
+      `ui/logic.py` (özetler, maliyet eğrisi, alarm kuyruğu), `ui/app.py` (yalnızca ekran).
+    - **Canlı akış:** Test dönemi işlemleri sırayla API'ye gönderilir; alarm kuyruğu
+      (maskelenmiş kart, tutar, olasılık, beklenen kayıp, en güçlü neden) ve özet sayılar.
+      "Başlangıç anı" ile akış istenen andan başlar: API geçmişi o ana kadarki tüm işlemlerle
+      yeniden kurar (`POST /reset?until=`), atlanan işlemler skorlanmaz ama geçmişe girer.
+      Gerçek etiket yalnızca bu simülasyonda bilindiği ekranda belirtilir.
+    - **İşlem incele:** Akıştaki bir alarm ya da elle girilen işlem; karar, olasılık,
+      beklenen kayıp, risk seviyesi ve ilk 3 nedenin katkı grafiği.
+    - **Eşik ve maliyet:** İnceleme ücreti ($1-100) kaydırıcısıyla alarm sayısı, precision,
+      recall, yakalanan tutar ve maliyet; alarm sayısı–yakalanan tutar eğrisi.
+  - Doğrulama (gerçek sunucular, uygulama içi tarayıcıda):
+    - 21 Haziran 22:00'den başlatılan akışta 150 işlem → 4 alarm, dördü de gerçek
+      dolandırıcılık; sıfırlayıp tekrar çalıştırınca birebir aynı sonuç.
+    - Elle girilen işlem ($912, shopping_net, 23:15) API'ye doğrudan gönderilen istekle aynı
+      sonucu verdi (%19,52, beklenen kayıp $178).
+    - **Maliyet sekmesi $10 ücrette Faz 3.5 test raporuyla birebir aynı:** 2.522 alarm,
+      precision %74,1, recall %87,2, yakalanan tutar %98,2, maliyet $45.525.
+  - Yolda bulunan ve düzeltilen hatalar:
+    - Akış öğleden başladığı için ilk alarm ~3.000 işlem (~4 dk) sonra geliyordu →
+      "başlangıç anı" eklendi.
+    - Bir partide API hatası olursa imleç ilerlemiyor, aynı işlemler geçmişe iki kez
+      eklenebiliyordu → imleç her işlemden sonra ilerliyor.
+    - Panel yeniden açılınca imleç sıfırlanıyor ama API'nin geçmişi önceki oturumun
+      işlemlerini tutuyordu → her yeni oturumda geçmiş sıfırlanıyor (tek kullanıcılı demo;
+      aynı anda iki sekme birbirini sıfırlar).
+    - Üstteki geçmiş sayısı bir adım geride kalıyordu → sayfa sonunda güncelleniyor.
+    - Açıklama satırlarındaki "$" işaretleri matematik formülü gibi işleniyordu → kaçış
+      karakteriyle yazılıyor (`money_md`, testli).
+    - Varsayılan kırmızı düğme "alarm" anlamıyla karışıyordu → tema maviye çevrildi; dar
+      ekranda taşan metrikler iki satıra bölündü; grafikte tekrarlanan eksen etiketleri düzeltildi.
+  - Testler (`tests/test_ui.py`, 8 test + `tests/test_serving.py`'ye 2 test): biçimlendirme,
+    özet sayılar, maliyet eğrisinin monotonluğu, alarm kuyruğu, API istemcisi (gerçek
+    uygulamaya karşı), API kapalıyken anlaşılır hata, panelin API kapalıyken çökmemesi
+    (Streamlit `AppTest`), sıfırlama ve "başlangıç anı".
 
 ## FAZ 5: Yayına Alma ve Belgeler · ~3-4 gün
 

@@ -10,6 +10,7 @@ yüklenir. `POST /score` her işlemi skorlar ve varsayılan olarak kartın geçm
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -43,6 +44,17 @@ def health(service: Service) -> Health:
 @app.get("/model")
 def model_info(service: Service) -> dict:
     return {**service.metadata, "ozellikler": service.features}
+
+
+@app.post("/reset", response_model=Health)
+def reset(service: Service, until: datetime | None = None) -> Health:
+    """Kart geçmişini başlangıç durumuna döndürür; skorlanıp kaydedilen işlemler silinir.
+    `until` verilirse geçmiş, veri setinde o ana kadarki tüm işlemlerle yeniden kurulur."""
+    try:
+        service.reset(until)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return health(service)
 
 
 @app.post("/score", response_model=ScoreResponse)

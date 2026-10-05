@@ -1,60 +1,20 @@
-import lightgbm as lgb
 import numpy as np
 import pandas as pd
 import pytest
+from conftest import TIME
 from fastapi.testclient import TestClient
 
-from card_fraud_detection.features.build import FEATURES, build_features, fit_stats
-from card_fraud_detection.models.threshold import Calibrator
+from card_fraud_detection.features.build import FEATURES
 from card_fraud_detection.serving.app import app
-from card_fraud_detection.serving.history import CardHistoryStore
-from card_fraud_detection.serving.service import Decision, ScoringService, risk_level
-
-CATEGORIES = ["gas_transport", "grocery_pos", "shopping_net"]
-TIME = "trans_date_trans_time"
+from card_fraud_detection.serving.service import risk_level
 
 
-def _transactions(n=1500, cards=12, seed=0):
-    rng = np.random.default_rng(seed)
-    secs = np.sort(rng.integers(0, 30 * 86400, n))
-    dup = np.flatnonzero(rng.random(n) < 0.05)
-    secs[dup[dup > 0]] = secs[dup[dup > 0] - 1]          # aynı saniyede işlemler
-    y = (rng.random(n) < 0.05).astype(int)
-    df = pd.DataFrame({
-        TIME: pd.Timestamp("2020-01-01") + pd.to_timedelta(secs, unit="s"),
-        "cc_num": rng.integers(0, cards, n) + 1000,
-        "amt": np.where(y == 1, rng.gamma(5, 150, n), rng.gamma(2, 30, n)).round(2),
-        "category": rng.choice(CATEGORIES, n),
-        "merchant": rng.choice(["a", "b", "c", "d", "e"], n),
-        "is_fraud": y, "split": "train",
-    })
-    df.insert(0, "tx_id", range(n))
-    return df
-
-
-@pytest.fixture(scope="module")
-def setup():
-    tx = _transactions()
-    stats = fit_stats(tx)
-    feats = build_features(tx, stats)
-    model = lgb.LGBMClassifier(n_estimators=30, num_leaves=15, verbose=-1).fit(
-        feats[FEATURES], tx["is_fraud"])
-    cal = Calibrator("önsel düzeltme", beta=1.0)
-    return tx, stats, feats, model, cal
-
-
-def _service(setup, history: pd.DataFrame, review_cost=10.0):
-    _, stats, _, model, cal = setup
-    return ScoringService(model, cal, Decision("beklenen maliyet", None, review_cost), stats,
-                          CardHistoryStore(history), metadata={"model": "test"})
-
-
-def test_serving_features_equal_training_features(setup):
+def test_serving_features_equal_training_features(serving_setup, make_service):
     """Eğitim/servis tutarlılığı: işlemler tek tek servisten geçirildiğinde özellikler,
     tüm veri üzerinde toplu hesaplananlarla birebir aynı olmalı."""
-    tx, _, feats, _, _ = setup
+    tx, _, feats, _, _ = serving_setup
     cut = len(tx) // 2
-    service = _service(setup, tx.iloc[:cut])
+    service = make_service(tx.iloc[:cut])
     # Geçmişi hiç olmayan kart da var: ilk yarıda görülmeyen kartlar
     rows = []
     for _, r in tx.iloc[cut:].iterrows():
@@ -71,8 +31,8 @@ def test_serving_features_equal_training_features(setup):
                                        rtol=1e-12, atol=1e-12, equal_nan=True, err_msg=col)
 
 
-def test_new_card_without_history(setup):
-    service = _service(setup, setup[0])
+def test_new_card_without_history(serving_setup, make_service):
+    service = make_service(serving_setup[0])
     t = {TIME: pd.Timestamp("2020-03-01 23:00"), "cc_num": 999_999, "amt": 50.0,
          "category": "grocery_pos", "merchant": "z"}
     row = service.features_for(t).iloc[0]
@@ -80,9 +40,9 @@ def test_new_card_without_history(setup):
     assert np.isnan(row["hrs_since_prev"]) and np.isnan(row["amt_to_card_mean"])
 
 
-def test_score_decision_reasons_and_saving(setup):
-    tx = setup[0]
-    service = _service(setup, tx, review_cost=0.0)        # ücret 0 → her işlem alarm
+def test_score_decision_reasons_and_saving(serving_setup, make_service):
+    tx = serving_setup[0]
+    service = make_service(tx, review_cost=0.0)           # ücret 0 → her işlem alarm
     before = service.store.n_transactions
     t = {TIME: pd.Timestamp("2020-02-01 23:30"), "cc_num": 1001, "amt": 900.0,
          "category": "shopping_net", "merchant": "a"}
@@ -91,10 +51,42 @@ def test_score_decision_reasons_and_saving(setup):
     assert r["islem_no"] is None and service.store.n_transactions == before
     assert r["beklenen_kayip"] == pytest.approx(r["olasilik"] * 900.0)
 
-    strict = _service(setup, tx, review_cost=1e9)         # ücret çok yüksek → onay
+    strict = make_service(tx, review_cost=1e9)            # ücret çok yüksek → onay
     r2 = strict.score(t)
     assert r2["karar"] == "onay" and r2["nedenler"] == []
     assert r2["islem_no"] is not None and strict.store.n_transactions == before + 1
+
+
+def test_reset_restores_initial_history(serving_setup, make_service):
+    service = make_service(serving_setup[0])
+    n0 = service.store.n_transactions
+    t = {TIME: pd.Timestamp("2020-02-01 23:30"), "cc_num": 1001, "amt": 900.0,
+         "category": "shopping_net", "merchant": "a"}
+    p0 = service.score(t)["olasilik"]
+    service.score(t)                                       # geçmiş değişti
+    service.reset()
+    assert service.store.n_transactions == n0
+    assert service.score(t, save=False)["olasilik"] == pytest.approx(p0)
+
+
+def test_reset_until_rebuilds_history_from_transactions(serving_setup, make_service):
+    """Akışı bir andan başlatmak: geçmiş, o ana kadarki tüm işlemlerle kurulur ve
+    sonraki işlemin özellikleri toplu hesaplamayla aynı olur."""
+    tx, _, feats, _, _ = serving_setup
+    service = make_service(tx.iloc[:100])
+    service.transactions = tx
+    cut_time = tx[TIME].iloc[900]
+    service.reset(until=cut_time)
+    assert service.store.n_transactions == int((tx[TIME] < cut_time).sum())
+    first = int((tx[TIME] < cut_time).sum())                   # o andan sonraki ilk işlem
+    t = tx.iloc[first][[TIME, "cc_num", "amt", "category", "merchant"]].to_dict()
+    online = service.features_for(t)[FEATURES].iloc[0]
+    np.testing.assert_allclose(online.drop("category").astype(float),
+                               feats.iloc[first][FEATURES].drop("category").astype(float),
+                               equal_nan=True)
+    service.transactions = None
+    with pytest.raises(ValueError, match="until"):
+        service.reset(until=cut_time)
 
 
 @pytest.mark.parametrize("p, level", [(0.0, "düşük"), (0.0099, "düşük"), (0.01, "orta"),
@@ -103,8 +95,8 @@ def test_risk_level(p, level):
     assert risk_level(p) == level
 
 
-def test_api_endpoints(setup):
-    app.state.service = _service(setup, setup[0], review_cost=0.0)
+def test_api_endpoints(serving_setup, make_service):
+    app.state.service = make_service(serving_setup[0], review_cost=0.0)
     with TestClient(app) as client:
         h = client.get("/health").json()
         assert h["durum"] == "hazır" and h["kart"] == 12
@@ -121,6 +113,12 @@ def test_api_endpoints(setup):
 
         assert client.post("/score", json=body).json()["islem_no"] is not None
         assert client.get("/health").json()["islem"] == h["islem"] + 1
+
+        after_reset = client.post("/reset").json()
+        assert after_reset["islem"] == h["islem"]                     # kayıt geri alındı
+        # Sıfırlamadan sonra aynı işlem aynı sonucu vermeli (geçmiş bozulmamış)
+        again = client.post("/score", json=body, params={"kaydet": False}).json()
+        assert again["olasilik"] == pytest.approx(data["olasilik"])
 
         bad = client.post("/score", json={**body, "category": "uzay_turizmi"})
         assert bad.status_code == 422 and "Bilinmeyen kategori" in bad.text
