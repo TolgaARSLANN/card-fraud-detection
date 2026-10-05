@@ -14,6 +14,6 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - run: pip install -e ".[dev,ml]"
+      - run: pip install -e ".[dev,ml,api]"
       - run: ruff check src tests
       - run: pytest -q

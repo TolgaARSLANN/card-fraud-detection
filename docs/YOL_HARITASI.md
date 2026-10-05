@@ -490,11 +490,40 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
 
 ## FAZ 4: Servis ve Arayüz · ~1 hafta
 
-- [ ] **4.1 FastAPI** (`serving/`)
+- [x] **4.1 FastAPI** (`serving/`)
   - `POST /score`: olasılık, risk seviyesi, karar, ilk 3 neden (Türkçe)
   - `GET /health`, `GET /model`
   - Kart geçmişi `CardHistoryStore`'da tutulur ve eğitimle aynı özellik kodunu kullanır.
   - Bitti sayılır: eğitim ile servis aynı işlem için aynı özellikleri üretiyor (testli)
+  - Sonuç: `make api` (uvicorn, port 8000; etkileşimli belgeler `/docs`).
+    - `POST /score`: olasılık, beklenen kayıp, karar (alarm/onay), risk seviyesi ve yalnızca
+      alarmda ilk 3 neden. `?kaydet=false` ile kartın geçmişine eklemeden skorlar.
+      Bilinmeyen kategori ve pozitif olmayan tutar 422 döner.
+    - Kart geçmişi başlangıçta test dönemi başına kadarki işlemlerle (983 kart, 1,3 milyon
+      işlem) yüklenir; panel test dönemini "canlı akış" olarak oynatabilir.
+    - **Özellikler eğitimdeki aynı `build_features` ile**, kartın geçmişi + yeni işlem
+      üzerinde hesaplanır; servis için ayrı özellik kodu yok. Bedeli: her istekte kartın tüm
+      geçmişi işlenir (istek ~50 ms). Ölçek gerekirse son 7 gün + kümülatif özet tutan bir
+      yapıya geçilebilir (gelecek iş).
+    - Risk seviyesi (olasılık < %1 düşük, < %20 orta, üstü yüksek) yalnızca özet etikettir;
+      **karar beklenen kayba dayanır**. Örnek: %19,5 olasılıklı $912'lık işlem "orta" risk ama
+      alarm (beklenen kayıp $178 > $10).
+  - **Tutarlılık doğrulaması (bitti sayılır ölçütü):**
+    - Birim testi: Sentetik veride işlemler tek tek servisten geçirildiğinde, aynı saniyedeki
+      işlemler ve geçmişi olmayan kartlar dahil, 19 özelliğin hepsi toplu hesaplamayla birebir
+      aynı.
+    - Gerçek veri (`make consistency`): Test döneminin ilk 2.000 işlemi sırayla servisten
+      geçirildi. **19 özelliğin hepsinde ve olasılıkta fark 0** (`features.parquet` ve
+      kaydedilmiş modelle karşılaştırma). Bu bir kod doğruluğu kontrolüdür; model veya eşikle
+      ilgili karar vermediği için 3.5'teki tek seferlik test protokolünü bozmaz.
+    - Canlı deneme: uvicorn başlatılıp HTTP ile `/health`, `/model`, `/score` (alarm ve onay
+      örnekleri) ve hatalı kategori denendi; sunucu günlüğünde uyarı/hata yok.
+  - Yolda yapılan değişiklikler: Demografik alanlar API'de zorunlu değil;
+    `transaction_features` ve `fit_stats` bu alanlar yoksa demografiyi atlıyor (eğitim yolu
+    değişmedi). SHAP'ın her çağrıda yazdığı bilgi uyarısı açıklama modülünde susturuldu.
+    CI artık `api` bağımlılıklarını da kuruyor.
+  - Testler (`tests/test_serving.py`, 10 test): tutarlılık, geçmişi olmayan kart, karar /
+    nedenler / kaydetme, risk seviyesi sınırları, API uç noktaları ve hata durumları.
 - [ ] **4.2 Streamlit paneli** (`ui/`)
   - Canlı akış ve alarm kuyruğu, işlem inceleme (SHAP), eşik–maliyet kaydırıcısı
 

@@ -9,6 +9,8 @@ SHAP toplanabilir olduğu için grup katkısı, gruptaki özelliklerin katkılar
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import shap
@@ -44,7 +46,10 @@ def explainer(model) -> shap.TreeExplainer:
 
 def shap_values(expl: shap.TreeExplainer, x: pd.DataFrame) -> pd.DataFrame:
     """Satır × özellik SHAP değerleri (log-oran). İkili sınıflamada tek çıktı kullanılır."""
-    values = expl.shap_values(x)
+    with warnings.catch_warnings():
+        # SHAP her çağrıda LightGBM çıktı biçimiyle ilgili bilgi uyarısı yazar; aşağıda ele alınır
+        warnings.filterwarnings("ignore", message="LightGBM binary classifier with TreeExplainer")
+        values = expl.shap_values(x)
     if isinstance(values, list):                       # eski shap: sınıf başına liste
         values = values[1]
     values = np.asarray(values)

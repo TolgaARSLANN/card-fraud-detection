@@ -73,7 +73,7 @@ def fit_stats(train: pd.DataFrame) -> FeatureStats:
     return FeatureStats(
         category_median_amt={str(k): float(v) for k, v in medians.items()},
         categories=sorted(str(c) for c in train["category"].unique()),
-        genders=sorted(str(g) for g in train["gender"].unique()),
+        genders=sorted(str(g) for g in train["gender"].unique()) if "gender" in train else [],
     )
 
 
@@ -82,8 +82,7 @@ def transaction_features(df: pd.DataFrame, stats: FeatureStats) -> pd.DataFrame:
     t = df[TIME_COL]
     # Eğitimde görülmemiş kategori ve cinsiyet değerleri boş (NaN) olur
     cat = df["category"].astype(str).where(lambda c: c.isin(stats.categories))
-    gender = df["gender"].astype(str).where(lambda c: c.isin(stats.genders))
-    return pd.DataFrame({
+    out = pd.DataFrame({
         "amt": df["amt"],
         "log_amt": np.log1p(df["amt"]),
         "category": pd.Categorical(cat, categories=stats.categories),
@@ -91,9 +90,13 @@ def transaction_features(df: pd.DataFrame, stats: FeatureStats) -> pd.DataFrame:
         "dow": t.dt.dayofweek.astype("int8"),
         "is_night": t.dt.hour.isin(NIGHT_HOURS).astype("int8"),
         "amt_to_cat_median": df["amt"] / cat.map(stats.category_median_amt).astype(float),
-        "age": ((t - df["dob"]).dt.days / 365.25).astype("float32"),
-        "gender": pd.Categorical(gender, categories=stats.genders),
     }, index=df.index)
+    # Demografi ana modele girmez; girdi bu alanları taşımıyorsa (ör. API) atlanır
+    if "dob" in df and "gender" in df:
+        gender = df["gender"].astype(str).where(lambda c: c.isin(stats.genders))
+        out["age"] = ((t - df["dob"]).dt.days / 365.25).astype("float32")
+        out["gender"] = pd.Categorical(gender, categories=stats.genders)
+    return out
 
 
 def card_history_features(df: pd.DataFrame) -> pd.DataFrame:

@@ -1,5 +1,5 @@
 .PHONY: install data quality process eda features baselines train tune threshold errors final \
-        explain test lint
+        explain api consistency test lint
 
 install:
 	pip install -e ".[dev,ml,api,ui]"
@@ -40,6 +40,12 @@ final:
 
 explain:
 	jupyter nbconvert --to notebook --execute --inplace notebooks/02_model.ipynb
+
+api:
+	uvicorn card_fraud_detection.serving.app:app --port 8000
+
+consistency:
+	python -m card_fraud_detection.serving.consistency
 
 test:
 	pytest -q
