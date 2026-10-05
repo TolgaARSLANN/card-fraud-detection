@@ -648,6 +648,17 @@ kalıcı bir testle güvenceye alındı.
     kaldırıldığında ya da aynı saniyede geri alma yapılmadığında test başarısız oluyor.
     Tarayıcıda da denendi: 50 işlem → API yeniden başlatıldı → uyarı çıktı, "Sonraki"
     kilitlendi → eşitleme → 50 işlem daha. Sonuçta panel 100, API 1.296.675 + 100 işlem.
+- [x] **D. Kayıtlar ve belgeler**
+  - **`final.py --force` ilk değerlendirme zamanını siliyordu:** kilit dosyası ve
+    `models/metadata.json` her çalıştırmada yeni zamanla yazılıyordu. Raporun biçim
+    düzeltmesi için yapılan yeniden üretim, 22:30:26'daki ilk değerlendirmenin yerine 22:33:01
+    yazmıştı. Kilidin ilk satırı artık hiç değişmiyor, yeniden üretimler alt satırlara
+    ekleniyor. Kayıtlar ilk değerlendirme ve rapor zamanını ayrı tutuyor
+    (`test_degerlendirme_zamani` / `rapor_uretim_zamani`). Mevcut kayıtlar test yeniden
+    çalıştırılmadan düzeltildi; sonuçlara dokunulmadı.
+  - **README güncel değildi** ("modelleme sırada" diyordu). Yaklaşım, test sonuçları, servis
+    ve panel, tam çalıştırma sırası ve yeni sınırlamalar eklendi. Sayılar raporlardan
+    karşılaştırılarak yazıldı.
 
 ## FAZ 5: Yayına Alma ve Belgeler · ~3-4 gün
 

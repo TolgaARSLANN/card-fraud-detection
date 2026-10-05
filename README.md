@@ -8,8 +8,9 @@ kuyruğuna gönderen, uçtan uca bir makine öğrenmesi projesi. İşlemlerin ya
 dolandırıcılık olduğu için projenin odağında sınıf dengesizliği, PR-AUC, maliyet tabanlı eşik
 seçimi ve açıklanabilirlik var.
 
-> 🚧 Geliştirme sürüyor: Veri, kalite kontrolü ve keşif analizi tamamlandı; özellikler ve
-> modelleme sırada. Ayrıntılı plan: [docs/YOL_HARITASI.md](docs/YOL_HARITASI.md)
+> Durum: Veri, özellikler, modelleme, tek seferlik test değerlendirmesi, açıklanabilirlik,
+> skorlama API'si ve izleme paneli tamamlandı. Sırada Docker ile paketleme var. Ayrıntılı plan
+> ve her adımın kararları: [docs/YOL_HARITASI.md](docs/YOL_HARITASI.md)
 
 ## Veri
 [Credit Card Transactions Fraud Detection](https://www.kaggle.com/datasets/kartik2112/fraud-detection)
@@ -62,17 +63,73 @@ bölmesiyle yapıldı.
   <em>Tutarın kartın geçmiş ortalamasına oranı güçlü bir sinyal (solda); işlem sayısı ise neredeyse hiç ayırt etmiyor (sağda).</em>
 </p>
 
+## Yaklaşım
+- **Özellikler yalnızca geçmişten:** Her işlem için kartın o ana kadarki geçmişi kullanılır
+  (son 1 saat / 24 saat / 7 gündeki işlem sayısı ve tutarı, kartın ve kategorinin normuna göre
+  tutar, önceki işlemden geçen süre, yeni satıcı / kategori). Bir test, gelecekteki satırlar
+  değiştirildiğinde hiçbir özelliğin değişmediğini doğrular.
+- **Model:** LightGBM, normal işlemlerden alt örnekleme ile eğitildi. Doğrulama döneminde
+  LightGBM ve XGBoost; dengesizlik stratejisi olarak hiçbiri, sınıf ağırlığı, alt örnekleme
+  ve SMOTE karşılaştırıldı (referanslar: kural, lojistik regresyon, Isolation Forest). Optuna ile yapılan ayar, önceden
+  yazılan kurala göre kazanç sağlamadığı için reddedildi.
+- **Olasılık ve karar:** Alt örnekleme skoru şişirdiği için önsel düzeltme ile kalibre edilir.
+  Alarm kuralı beklenen maliyettir: olasılık × tutar ≥ $10 inceleme ücreti ise incele.
+- **Adalet:** Yaş ve cinsiyet modele girmez; cinsiyete göre hata oranları ayrıca izlenir.
+- **Açıklama:** Her alarm için SHAP katkıları 12 anlam grubunda toplanır ve ilk 3 neden Türkçe
+  cümleyle verilir (ör. "Tutar, kartın geçmiş ortalamasının … katı").
+
+## Sonuçlar (test dönemi, bir kez değerlendirildi)
+Test dönemine yalnızca bir kez, protokol önceden yazılıp commit'lendikten sonra bakıldı.
+Tam rapor: [reports/test_sonuclari.md](reports/test_sonuclari.md)
+
+| model | PR-AUC | ROC-AUC | günde 25 alarmla yakalanan |
+|---|---|---|---|
+| **LightGBM · alt örnekleme** | **0,959** | 0,999 | %93,9 |
+| Lojistik regresyon | 0,534 | 0,983 | %70,6 |
+| Yalnızca tutar | 0,137 | 0,833 | %45,7 |
+
+- PR-AUC farkı (model − lojistik regresyon): **0,425**, %95 güven aralığı [0,386; 0,467]
+  (kart düzeyinde bootstrap). Önceden belirlenen başarı ölçütü geçildi.
+- Karar kuralıyla 6 ayda 2.522 alarm: dolandırıcılığın %87'si, dolandırıcılık tutarının
+  %98'i yakalandı; precision %74. Toplam maliyet **$45.525**. Hiç alarm vermemenin maliyeti
+  $1.133.325 olurdu.
+- Dolandırıcılık patlamalarının %99,5'inde en az bir alarm var; %74'ü patlamanın ilk
+  işleminde yakalandı.
+
+<p align="center">
+  <img src="reports/figures/4_shap_onem.png" alt="Anlam gruplarına göre SHAP önemi" width="80%"><br>
+  <em>Model en çok tutara dayanıyor; ardından saat ve son 24 saatteki harcama geliyor.</em>
+</p>
+
+## Servis ve Panel
+- **API (FastAPI):** `POST /score` işlemi skorlar ve olasılık, beklenen kayıp, karar, risk
+  seviyesi ile ilk 3 nedeni döndürür. API, kart geçmişini bellekte tutar ve özellikleri
+  eğitimdeki aynı kodla hesaplar. 2.000 gerçek test işleminde eğitimdeki özelliklerle farkın
+  sıfır olduğu doğrulandı (`make consistency`).
+- **Panel (Streamlit, "Gece Nöbeti"):** Canlı akış (test dönemi işlemleri sırayla skorlanır,
+  alarm kuyruğu oluşur), İşlem incele (bir işlemin kararı ve nedenleri), Eşik ve maliyet
+  (inceleme ücreti değişirse alarm sayısı ve maliyet nasıl değişir).
+
 ## Kurulum ve Çalıştırma
 Linux, macOS veya WSL üzerinde:
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-make data       # veriyi indirir: data/raw/{train,test}.parquet
-make quality    # veri kalite raporu: reports/veri_kalite_raporu.md
+make install    # pip install -e ".[dev,ml,api,ui]"
+make data       # veriyi indirir (Kaggle): data/raw/{train,test}.parquet
 make process    # temizlik ve bölme: data/processed/transactions.parquet
-make eda        # keşif analizi notebook'unu çalıştırır, grafikleri üretir
-make test
+make features   # geçmişe dayalı özellikler
+make threshold  # final modeli eğitir, kalibre eder, karar kuralını kaydeder: models/
+make panel-data # panelin "Eşik ve maliyet" sekmesi için skorlar
+make ui         # API'yi (gerekirse) başlatır ve paneli açar: http://localhost:8501
 ```
+Diğer adımlar (`quality`, `eda`, `baselines`, `train`, `tune`, `errors`, `explain`) ara
+raporları yeniden üretir. `make final` testi değerlendirir. Bu adım protokol gereği yalnızca
+bir kez çalışır, sonraki çalıştırmaları reddeder. `make test` ve `make lint` ile testler
+ve kod denetimi çalışır.
+
+Yalnızca API ya da yalnızca panel için daha küçük kurulumlar yeterlidir:
+`pip install ".[api]"` / `pip install ".[ui]"`. Paket düzenlenebilir olmayan biçimde
+kurulduğunda komutlar proje kökünden çalıştırılmalı ya da `CARD_FRAUD_ROOT` verilmelidir.
 
 ## Sınırlamalar
 - **Sentetik veri.** Bulgular Sparkov simülatörünün davranışını yansıtır. Örneğin
@@ -80,3 +137,12 @@ make test
   gibi gerçek dünyada karşılığı olmayan kurallar öğrenebilir.
 - **Soğuk başlangıç yok.** Test kartlarının %98'i eğitimde de görülüyor; yeni açılmış kartlardaki
   performans bu veriyle ölçülemiyor.
+- **Etiket gecikmesi yok sayıldı.** Gerçekte dolandırıcılık etiketi haftalar sonra gelir. Bu
+  yüzden model geçmiş etiketleri özellik olarak kullanmaz; yeniden eğitim döngüsü ise
+  kurulmadı.
+- **Kavram kayması sınırlı ölçüldü.** Test dönemi altı ay. Aylık PR-AUC 0,929 ile 0,971
+  arasında. En zayıf ay Aralık: işlem hacmi iki katına çıkarken precision %60'a düşüyor
+  (diğer aylarda %72-80). Model izlenmeli ve yeniden eğitilmeli.
+- **Servis tek süreçlidir.** Kart geçmişi bellekte tutulur, API yeniden başlarsa geçmiş başa
+  döner (panel bunu fark edip eşitlemeyi önerir). Gerçek bir sistemde geçmiş paylaşılan bir
+  depoda (ör. Redis) tutulmalıdır. Panel tek kullanıcılı bir demodur.

@@ -43,6 +43,17 @@ def test_lock_blocks_second_run(tmp_path, monkeypatch):
     check_lock(force=True)                                    # bilinçli yeniden üretim
 
 
+def test_force_rerun_keeps_first_evaluation_time(tmp_path, monkeypatch):
+    """--force ile yeniden üretim ilk değerlendirme zamanını silmemeli (protokolün kanıtı)."""
+    lock = tmp_path / "kilit.lock"
+    monkeypatch.setattr(final, "LOCK_PATH", lock)
+    assert final.record_run("2026-09-29T22:30:26") == "2026-09-29T22:30:26"
+    assert final.record_run("2026-09-29T22:33:01") == "2026-09-29T22:30:26"
+    assert lock.read_text().split() == ["2026-09-29T22:30:26", "2026-09-29T22:33:01"]
+    with pytest.raises(SystemExit, match="22:30:26"):
+        check_lock(force=False)
+
+
 def test_formatted_counts_money_and_rates():
     s = pd.Series({"alarm": 2522.0, "maliyet": 45524.94, "recall": 0.87184, "tekrar": 200.0},
                   name="değer")

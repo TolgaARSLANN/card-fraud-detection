@@ -29,5 +29,6 @@
   "inceleme_ucreti": 10.0,
   "test_pr_auc": 0.9593577181749173,
   "test_maliyet": 45524.94000000018,
-  "test_degerlendirme_zamani": "2026-09-29T22:33:01"
+  "test_degerlendirme_zamani": "2026-09-29T22:30:26",
+  "rapor_uretim_zamani": "2026-09-29T22:33:01"
 }

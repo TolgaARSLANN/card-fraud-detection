@@ -83,12 +83,27 @@ def card_bootstrap_diff(y, s_a, s_b, cards, n_boot: int = N_BOOT,
             "ust_sinir_95": float(np.quantile(diffs, 0.975)), "tekrar": int(len(diffs))}
 
 
+def _lock_lines() -> list[str]:
+    return LOCK_PATH.read_text(encoding="utf-8").split() if LOCK_PATH.exists() else []
+
+
 def check_lock(force: bool) -> None:
     if LOCK_PATH.exists() and not force:
         raise SystemExit(
-            f"Test daha önce değerlendirildi ({LOCK_PATH.read_text().strip()}). Protokole göre "
+            f"Test daha önce değerlendirildi ({_lock_lines()[0]}). Protokole göre "
             "test bir kez değerlendirilir; yalnızca raporu yeniden üretmek gerekiyorsa ve model "
             "değişmediyse --force kullanın.")
+
+
+def record_run(now: str) -> str:
+    """Bu çalıştırmayı kilit dosyasına ekler; testin İLK değerlendirilme zamanını döndürür.
+
+    İlk satır ilk değerlendirmedir ve hiç değişmez; `--force` ile yapılan yeniden üretimler
+    alt satırlara eklenir. (Önceden kilit her çalıştırmada üzerine yazılıyordu; böylece ilk
+    değerlendirme zamanı, protokolün kanıtı, kayboluyordu.)"""
+    lines = _lock_lines()
+    LOCK_PATH.write_text("\n".join([*lines, now]) + "\n", encoding="utf-8")
+    return lines[0] if lines else now
 
 
 def outcome_row(frame: pd.DataFrame, p, alerts) -> dict:
@@ -195,8 +210,9 @@ def main() -> None:
                              .rename("cinsiyet"))
 
     stamp = datetime.now().isoformat(timespec="seconds")
-    LOCK_PATH.write_text(f"{stamp}\n", encoding="utf-8")
-    result = {"zaman": stamp, "basari_olcutu_gecti": bool(passed), "bootstrap": boot,
+    first = record_run(stamp)
+    result = {"ilk_degerlendirme_zamani": first, "zaman": stamp,
+              "basari_olcutu_gecti": bool(passed), "bootstrap": boot,
               "karar_kurali": decision["kural"], "kalibrasyon": decision["kalibrasyon"],
               "test": {k: (float(v) if isinstance(v, (int, float, np.floating, np.integer))
                            else v) for k, v in rule.items()},
@@ -210,7 +226,7 @@ def main() -> None:
         "beta": decision["beta"], "karar_kurali": decision["kural"],
         "esik": decision.get("esik"), "inceleme_ucreti": REVIEW_COST,
         "test_pr_auc": rule["PR-AUC"], "test_maliyet": rule["maliyet"],
-        "test_degerlendirme_zamani": stamp,
+        "test_degerlendirme_zamani": first, "rapor_uretim_zamani": stamp,
     }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     rule_tbl = pd.Series({k: rule[k] for k in (
@@ -223,7 +239,8 @@ def main() -> None:
     REPORT_MD.write_text("\n".join([
         "# Test Sonuçları (Faz 3.5)",
         "",
-        f"_Üreten: `python -m card_fraud_detection.models.final` · {stamp} · Test: "
+        f"_Üreten: `python -m card_fraud_detection.models.final` · ilk değerlendirme {first}"
+        f"{f' (rapor {stamp})' if stamp != first else ''} · Test: "
         f"{test[TIME_COL].min():%Y-%m-%d} → {test[TIME_COL].max():%Y-%m-%d}, {len(test):,} "
         f"işlem, {int(y.sum()):,} dolandırıcılık · Test bir kez değerlendirildi; protokol "
         "önceden yazıldı (docs/YOL_HARITASI.md §3.5)_",

@@ -1,6 +1,6 @@
 # Test Sonuçları (Faz 3.5)
 
-_Üreten: `python -m card_fraud_detection.models.final` · 2026-09-29T22:33:01 · Test: 2020-06-21 → 2020-12-31, 555,719 işlem, 2,145 dolandırıcılık · Test bir kez değerlendirildi; protokol önceden yazıldı (docs/YOL_HARITASI.md §3.5)_
+_Üreten: `python -m card_fraud_detection.models.final` · ilk değerlendirme 2026-09-29T22:30:26 (rapor 2026-09-29T22:33:01) · Test: 2020-06-21 → 2020-12-31, 555,719 işlem, 2,145 dolandırıcılık · Test bir kez değerlendirildi; protokol önceden yazıldı (docs/YOL_HARITASI.md §3.5)_
 
 ## Başarı ölçütü: GEÇTİ
 
