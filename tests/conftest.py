@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from card_fraud_detection.features.build import FEATURES, build_features, fit_stats
-from card_fraud_detection.models.threshold import Calibrator
+from card_fraud_detection.models.calibration import Calibrator
 from card_fraud_detection.serving.history import CardHistoryStore
 from card_fraud_detection.serving.service import Decision, ScoringService
 

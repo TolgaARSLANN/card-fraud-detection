@@ -618,6 +618,23 @@ kalıcı bir testle güvenceye alındı.
   - Bilerek değiştirilmeyenler: gelecek / çok eski tarihler ve kartın son işleminden eski
     işlemler kabul edilir (model bu alanları kullanmaz; özellikler yalnızca o işlemden önceki
     geçmişle hesaplanır, gecikmeli gelen işlemler gerçek sistemlerde olağandır).
+- [x] **B. Bağımlılıklar ve kurulum**
+  - **API ve panel yalnızca kendi kurulum gruplarıyla açılmıyordu.** Servis kalibratörü
+    eğitim modülünden (`models/threshold.py`) aldığı için matplotlib, xgboost ve
+    imbalanced-learn'ü yüklüyordu; panel de sayı biçimi için SHAP'a bağlıydı. Ayrıca `api`
+    grubunda `shap`, `ui` grubunda `httpx` eksikti. Kalibratör `models/calibration.py`'ye,
+    sayı biçimi `formatting.py`'ye, model yolları `config.py`'ye taşındı; gruplar tamamlandı.
+    Test (`tests/test_imports.py`), eğitim kütüphanelerini "kurulu değil" gibi engelleyip
+    servis ve panel modüllerinin yine açıldığını doğruluyor. Eski içe aktarma geri
+    konulduğunda başarısız oluyor. Temiz `.[api]` ortamında `/score` çalışıyor, temiz `.[ui]`
+    ortamında panel istisnasız açılıyor.
+  - **Normal kurulumda (`pip install .`) proje kökü yanlış bulunuyordu:** kök, paket
+    dosyasının konumundan hesaplandığı için site-packages'a işaret ediyor, servis modeli
+    bulamıyordu (Docker'da da aynısı olurdu). Sıra artık şöyle: `CARD_FRAUD_ROOT` ortam
+    değişkeni, ardından kaynak ağacı (`pyproject.toml` varsa), en son çalışma dizini.
+  - **Panelde kullanımdan kalkan bileşen:** `st.components.v1.html` (Streamlit, 2026-06-01
+    sonrasında kaldırılacağını bildiriyor) yerine `st.html(..., unsafe_allow_javascript=True)`
+    kullanılıyor. Tarayıcıda doğrulandı: `lang="tr"`, iframe yok, "İŞLEM" doğru yazılıyor.
 
 ## FAZ 5: Yayına Alma ve Belgeler · ~3-4 gün
 

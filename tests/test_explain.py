@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from card_fraud_detection.features.build import FEATURES
+from card_fraud_detection.formatting import tr_num
 from card_fraud_detection.models.explain import (
     GROUPS,
     base_value,
@@ -13,7 +14,6 @@ from card_fraud_detection.models.explain import (
     group_contributions,
     shap_values,
     top_reasons,
-    tr_num,
 )
 
 CATEGORIES = ["gas_transport", "grocery_pos", "shopping_net"]

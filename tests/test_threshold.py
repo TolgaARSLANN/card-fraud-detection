@@ -2,14 +2,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from card_fraud_detection.models.calibration import Calibrator, prior_correction
 from card_fraud_detection.models.threshold import (
     ORACLE,
-    Calibrator,
     choose,
     expected_calibration_error,
     expected_cost_alerts,
     forward_folds,
-    prior_correction,
 )
 
 
