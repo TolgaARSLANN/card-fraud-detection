@@ -526,7 +526,14 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
     nedenler / kaydetme, risk seviyesi sınırları, API uç noktaları ve hata durumları.
 - [x] **4.2 Streamlit paneli** (`ui/`)
   - Canlı akış ve alarm kuyruğu, işlem inceleme (SHAP), eşik–maliyet kaydırıcısı
-  - Sonuç: `make api` + `make ui` (http://localhost:8501). Skor dosyası: `make panel-data`.
+  - Sonuç: `make ui` (http://localhost:8501). Skor dosyası: `make panel-data`.
+    - **Tek komut** (`scripts/ui.sh`): API çalışmıyorsa arka planda başlatıp hazır olmasını
+      bekler, sonra paneli açar; Ctrl+C ile yalnızca kendi başlattığı API'yi kapatır. Başka bir
+      terminalde `make api` ile açılmış bir API varsa onu kullanır, ona dokunmaz. Model dosyası
+      yoksa ne yapılacağını söyleyerek durur. İki senaryo da (API kapalı / açık) Ctrl+C
+      sinyaliyle sınandı; arkada süreç kalmadı.
+    - Panel yalnızca `localhost`'a bağlanır (Streamlit varsayılanı tüm ağ arayüzleri ve dış
+      adres gösteriyordu); Windows tarayıcısından erişim doğrulandı. API zaten yalnızca yerel.
     - Panel modeli doğrudan yüklemez, API'ye HTTP ile bağlanır (Faz 5'teki iki ayrı servise
       hazır). İş mantığı test edilebilir olsun diye ayrı: `ui/client.py` (API istemcisi),
       `ui/logic.py` (özetler, maliyet eğrisi, alarm kuyruğu), `ui/app.py` (yalnızca ekran).

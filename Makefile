@@ -50,9 +50,9 @@ consistency:
 panel-data:
 	python -m card_fraud_detection.ui.prepare
 
-# Önce ayrı bir terminalde: make api
+# Tek komut: API çalışmıyorsa başlatır, paneli açar; Ctrl+C ikisini de kapatır
 ui:
-	streamlit run src/card_fraud_detection/ui/app.py --server.port 8501
+	bash scripts/ui.sh
 
 test:
 	pytest -q

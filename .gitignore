@@ -12,3 +12,4 @@ models/*.joblib
 models/*.txt
 .env
 kaggle.json
+.api.log
