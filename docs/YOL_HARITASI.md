@@ -559,6 +559,24 @@ Toplam süre tahmini: ~5-6 hafta (haftada 10-15 saat).
       karakteriyle yazılıyor (`money_md`, testli).
     - Varsayılan kırmızı düğme "alarm" anlamıyla karışıyordu → tema maviye çevrildi; dar
       ekranda taşan metrikler iki satıra bölündü; grafikte tekrarlanan eksen etiketleri düzeltildi.
+  - **Yeniden tasarım: "Gece Nöbeti"** ([`docs/tasarim/gece-nobeti.md`](tasarim/gece-nobeti.md)).
+    Önce bir tasarım felsefesi ve onu gerçek test verisinden çizen bir tasarım tuvali
+    ([`gece-nobeti.png`](tasarim/gece-nobeti.png): 24 saatlik kadranda 2.145 dolandırıcılık,
+    her biri kendi günü ve dakikasında; gece yayı kendiliğinden ortaya çıkıyor) üretildi, sonra
+    panel bu dille baştan tasarlandı (`ui/theme.py`):
+    - Koyu mürekkep zemin, ince çizgiler, **tek sinyal rengi** (#f05a36) yalnızca alarm için;
+      sakin mavi normal işlem için. Renkler dataviz doğrulayıcısından koyu yüzeyde geçti
+      (ilk aday #ff5c38 açıklık bandını aştığı için bir kademe koyulaştırıldı).
+    - Tipografi: başlıklarda Instrument Serif, etiket ve verilerde Geist Mono, metinde
+      Instrument Sans. Metrik kartları, karar kartı, numaralı neden listesi HTML bileşeni;
+      canlı akışın yanında tuvaldeki kadranın canlı yankısı (açı saat, alarm kızıl).
+    - Bulunup düzeltilenler: CSS büyük harf dönüşümü Türkçe "i"yi "I" yapıyordu ("IŞLEM") →
+      sayfa dili `tr` işaretlendi, bileşenler `lang="tr"` taşıyor; HTML içindeki "$...$"
+      formül sayılıyordu → `esc` "$"ı HTML varlığına çeviriyor (testli); Streamlit başlık ve
+      sekme stilleri tasarımı eziyordu → React Aria seçicileri; dar sütunda metrik etiketleri
+      kırpılıyordu → ızgara sütun sayısı parametreli; tablo kadranla sıkışıyordu → kuyruk tam
+      genişlik; grafik eksen başlığı kesiliyordu → eksenin anlamı grafiğin üstünde; Plotly
+      sayıları Türkçe biçimde.
   - Testler (`tests/test_ui.py`, 8 test + `tests/test_serving.py`'ye 2 test): biçimlendirme,
     özet sayılar, maliyet eğrisinin monotonluğu, alarm kuyruğu, API istemcisi (gerçek
     uygulamaya karşı), API kapalıyken anlaşılır hata, panelin API kapalıyken çökmemesi

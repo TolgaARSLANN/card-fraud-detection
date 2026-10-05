@@ -13,11 +13,6 @@ def money(x: float) -> str:
     return f"${tr_num(x)}"
 
 
-def money_md(x: float) -> str:
-    """Markdown metni için: Streamlit iki '$' arasını matematik formülü sayar, kaçış gerekir."""
-    return money(x).replace("$", r"\$")
-
-
 def mask_card(cc_num) -> str:
     return f"•••• {str(int(cc_num))[-4:]}"
 

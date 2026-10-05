@@ -1,6 +1,15 @@
+# Tasarım dili: docs/tasarim/gece-nobeti.md · ayrıntılı stil: src/card_fraud_detection/ui/theme.py
 [theme]
-# Panelde turuncu/kırmızı "alarm" anlamı taşır; sıradan düğmeler varsayılan kırmızı olmasın
-primaryColor = "#2a78d6"
+base = "dark"
+backgroundColor = "#0b101a"
+secondaryBackgroundColor = "#121a28"
+textColor = "#ebe7de"
+# Sinyal rengi (#f05a36) yalnızca alarm içindir; sıradan eylemler sakin mavi
+primaryColor = "#6f8fd1"
+borderColor = "#26324a"
+
+[client]
+toolbarMode = "minimal"
 
 [browser]
 gatherUsageStats = false

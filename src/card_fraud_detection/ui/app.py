@@ -1,8 +1,9 @@
-"""Kart dolandırıcılığı izleme paneli (Streamlit).
+"""Gece Nöbeti — kart dolandırıcılığı izleme paneli (Streamlit).
 
 Çalıştırma (önce API: `make api`):
     streamlit run src/card_fraud_detection/ui/app.py      # make ui
 
+Tasarım dili: docs/tasarim/gece-nobeti.md (tasarım sistemi: ui/theme.py).
 Sekmeler: Canlı akış (test dönemi işlemleri sırayla API'ye gönderilir, alarm kuyruğu oluşur),
 İşlem incele (kararın nedenleri), Eşik ve maliyet (inceleme ücreti değişirse ne olur).
 """
@@ -15,25 +16,32 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 
 from card_fraud_detection.config import REVIEW_COST, TARGET, TIME_COL
 from card_fraud_detection.data.clean import OUT_PATH as TRANSACTIONS_PATH
 from card_fraud_detection.models.explain import tr_num
+from card_fraud_detection.ui import theme
 from card_fraud_detection.ui.client import ApiClient, ApiError
 from card_fraud_detection.ui.logic import (
     alert_queue,
     money,
-    money_md,
     review_cost_curve,
     review_cost_point,
     stream_kpis,
 )
 from card_fraud_detection.ui.prepare import PANEL_SCORES
 
-FRAUD, NORMAL, MUTED = "#eb6834", "#2a78d6", "#898781"
 INPUT = [TIME_COL, "cc_num", "amt", "category", "merchant"]
 
-st.set_page_config(page_title="Kart Dolandırıcılığı Paneli", page_icon="💳", layout="wide")
+st.set_page_config(page_title="Gece Nöbeti · Kart Dolandırıcılığı", page_icon="◐",
+                   layout="wide")
+st.markdown(theme.CSS, unsafe_allow_html=True)
+# Sayfa dilini Türkçe işaretle: CSS büyük harf dönüşümü "i"yi "İ" yapsın ("IŞLEM" değil
+# "İŞLEM"). Streamlit'in kendi öğeleri (sekme, etiket, düğme) için gerekli; bileşenlerimiz
+# ayrıca lang="tr" taşır.
+components.html("<script>window.parent.document.documentElement.lang = 'tr';</script>",
+                height=0)
 
 
 @st.cache_resource
@@ -59,44 +67,63 @@ def pct(x: float, decimals: int = 1) -> str:
     return f"%{tr_num(100 * x, decimals)}"
 
 
-def reason_chart(reasons: list[dict]) -> go.Figure:
-    r = list(reversed(reasons))
-    fig = go.Figure(go.Bar(x=[x["katki"] for x in r], y=[x["aciklama"] for x in r],
-                           orientation="h", marker_color=FRAUD,
-                           hovertemplate="%{y}<br>katkı %{x:.2f}<extra></extra>"))
-    fig.update_layout(height=60 + 45 * len(r), margin=dict(l=10, r=10, t=10, b=30),
-                      xaxis_title="Skora katkı (log-oran)", showlegend=False)
+def html(s: str) -> None:
+    st.markdown(s, unsafe_allow_html=True)
+
+
+def watch_dial(results: pd.DataFrame) -> go.Figure:
+    """Tuvaldeki kadranın canlı yankısı: açı saat, yarıçap akıştaki sıra; alarm = sinyal."""
+    t = pd.to_datetime(results[TIME_COL])
+    theta = (t.dt.hour * 60 + t.dt.minute) / 1440 * 360
+    r = np.arange(1, len(results) + 1)
+    alert = results["karar"].eq("alarm").to_numpy()
+    hover = [f"{ts:%d.%m %H:%M} · {money(a)} · {c}" for ts, a, c in
+             zip(t, results["amt"], results["category"], strict=True)]
+    fig = go.Figure()
+    fig.add_trace(go.Scatterpolar(
+        theta=theta[~alert], r=r[~alert], mode="markers", name="onay",
+        marker=dict(size=4, color=theme.CALM, opacity=0.45),
+        text=np.array(hover)[~alert], hovertemplate="%{text}<extra>onay</extra>"))
+    fig.add_trace(go.Scatterpolar(
+        theta=theta[alert], r=r[alert], mode="markers", name="alarm",
+        marker=dict(size=9, color=theme.SIGNAL, line=dict(color=theme.INK, width=2)),
+        text=np.array(hover)[alert], hovertemplate="%{text}<extra>alarm</extra>"))
+    fig.update_layout(
+        template="gece", height=300, showlegend=False, margin=dict(l=28, r=28, t=28, b=16),
+        polar=dict(
+            angularaxis=dict(rotation=90, direction="clockwise", tickmode="array",
+                             tickvals=[0, 90, 180, 270], ticktext=["00", "06", "12", "18"],
+                             gridcolor=theme.HAIR, linecolor=theme.HAIR,
+                             tickfont=dict(color=theme.PAPER)),
+            radialaxis=dict(showticklabels=False, gridcolor=theme.HAIR, linecolor=theme.HAIR,
+                            ticks="", range=[0, max(len(results), 1) * 1.05]),
+        ))
     return fig
 
 
 def show_result(res: dict, amt: float) -> None:
     alert = res["karar"] == "alarm"
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Karar", "🚨 ALARM" if alert else "✅ Onay")
-    c2.metric("Olasılık", pct(res["olasilik"], 2))
-    c3.metric("Beklenen kayıp", money(res["beklenen_kayip"]))
-    c4.metric("Risk seviyesi", res["risk_seviyesi"])
-    st.caption(f"Karar beklenen kayba dayanır: olasılık × tutar ({money_md(amt)}) ≥ "
-               f"inceleme ücreti ({money_md(REVIEW_COST)}) ise alarm. Risk seviyesi yalnızca "
-               "özet etikettir.")
+    html(theme.verdict(alert, pct(res["olasilik"], 2), money(res["beklenen_kayip"]),
+                       res["risk_seviyesi"]))
     if alert and res["nedenler"]:
-        st.markdown("**Neden alarm verildi?** (skoru en çok artıran 3 etken)")
-        st.plotly_chart(reason_chart(res["nedenler"]), use_container_width=True)
-    elif not alert:
-        st.info("Onaylanan işlemler için neden gösterilmez.")
+        html(theme.section("Neden", "Skoru en çok artıran üç etken"))
+        html(theme.reasons(res["nedenler"]))
+    extra = "" if alert else " Onaylanan işlemler için neden gösterilmez."
+    html(theme.note(f"Karar beklenen kayba dayanır: olasılık × tutar ({money(amt)}) ≥ inceleme "
+                    f"ücreti ({money(REVIEW_COST)}) ise alarm. Risk seviyesi yalnızca özet "
+                    f"etikettir.{extra}"))
 
 
 # --- Başlık ve bağlantı ---
 
-st.title("💳 Kart Dolandırıcılığı İzleme Paneli")
 client = get_client()
 try:
     client.health()
 except ApiError as exc:
+    html(theme.masthead("bağlantı yok"))
     st.error(f"{exc}\n\nAPI'yi başlatmak için ayrı bir terminalde: `make api`")
     st.stop()
-# Sayfanın sonunda doldurulur: bu çalıştırmada gönderilen işlemler de sayıya girsin
-status_line = st.empty()
+mast = st.empty()          # sayfa sonunda doldurulur: bu çalıştırmadaki işlemler dahil
 
 tab_stream, tab_inspect, tab_cost = st.tabs(["Canlı akış", "İşlem incele", "Eşik ve maliyet"])
 
@@ -112,16 +139,17 @@ with tab_stream:
         client.reset()
         state.cursor, state.results = 0, []
 
-    st.markdown("Test dönemi (21 Haziran – 31 Aralık 2020) işlemleri sırayla API'ye gönderilir; "
-                "her işlem skorlanıp kartın geçmişine eklenir.")
+    html(theme.section("Test dönemi · 21 Haziran – 31 Aralık 2020", "Akış",
+                       "İşlemler sırayla API'ye gönderilir; her biri skorlanıp kartın "
+                       "geçmişine eklenir. Dolandırıcılık çoğunlukla gece gelir."))
     with st.expander("Başlangıç anı"):
-        st.caption("Dolandırıcılık çoğunlukla gece; akışı istediğiniz andan başlatabilirsiniz. "
-                   "Atlanan işlemler skorlanmaz ama kartların geçmişine eklenir, böylece "
-                   "özellikler tutarlı kalır.")
+        st.caption("Atlanan işlemler skorlanmaz ama kartların geçmişine eklenir; özellikler "
+                   "tutarlı kalır.")
         s1, s2, s3 = st.columns([1, 1, 1])
         start_day = s1.date_input("Tarih", value=datetime(2020, 6, 21), key="start_day",
                                   min_value=datetime(2020, 6, 21), max_value=datetime(2020, 12, 31))
         start_hour = s2.time_input("Saat", value=time(22, 0), key="start_hour")
+        s3.write("")
         if s3.button("Bu andan başlat", use_container_width=True):
             start = datetime.combine(start_day, start_hour)
             with st.spinner("Kart geçmişi o ana kadar yeniden kuruluyor…"):
@@ -130,9 +158,9 @@ with tab_stream:
             state.results = []
             st.rerun()
 
-    c1, c2, c3 = st.columns([2, 1, 1])
-    batch = c1.select_slider("Her adımda işlem sayısı", [10, 25, 50, 100, 200], value=50)
-    if c2.button("▶ Sonraki işlemler", type="primary", use_container_width=True):
+    c1, c2, c3 = st.columns([2, 1, 1], vertical_alignment="bottom")
+    batch = c1.select_slider("Her adımda işlem", [10, 25, 50, 100, 200], value=50)
+    if c2.button("Sonraki →", type="primary", use_container_width=True):
         chunk = stream.iloc[state.cursor:state.cursor + batch]
         bar = st.progress(0.0, text="Skorlanıyor…")
         try:
@@ -145,56 +173,78 @@ with tab_stream:
         except ApiError as exc:
             st.error(str(exc))
         bar.empty()
-    if c3.button("↺ Baştan başlat", use_container_width=True):
+    if c3.button("↺ Baştan", use_container_width=True):
         client.reset()
         state.cursor, state.results = 0, []
         st.rerun()
 
     results = pd.DataFrame(state.results)
     k = stream_kpis(results)
-    m = st.columns(3) + st.columns(3)          # dar ekranda taşmasın: iki satır
-    m[0].metric("İşlem", tr_num(k["işlem"]))
-    m[1].metric("Alarm", tr_num(k["alarm"]))
-    m[2].metric("Yanlış alarm", tr_num(k["yanlış alarm"]))
-    m[3].metric("Yakalanan dolandırıcılık", tr_num(k["yakalanan"]))
-    m[4].metric("Kaçan dolandırıcılık", tr_num(k["kaçan"]))
-    m[5].metric("Kaçan tutar", money(k["kaçan tutar"]))
+    # Üstte: solda metrikler, sağda kadran. Altta: alarm kuyruğu tam genişlikte (tablo sıkışmasın)
+    left, right = st.columns([5, 3], gap="large")
+    with left:
+        html(theme.kpis([
+            ("İşlem", tr_num(k["işlem"]), None),
+            ("Alarm", tr_num(k["alarm"]), "signal"),
+            ("Yakalanan", tr_num(k["yakalanan"]), "signal"),
+            ("Kaçan", tr_num(k["kaçan"]), None),
+            ("Yanlış alarm", tr_num(k["yanlış alarm"]), "calm"),
+            ("Kaçan tutar", money(k["kaçan tutar"]), None),
+        ], cols=3))
+        if results.empty:
+            html(theme.note("Henüz işlem gönderilmedi. Gece saatlerini görmek için “Başlangıç "
+                            "anı” bölümünden 22:00'yi seçebilirsiniz."))
+        else:
+            last = pd.Timestamp(results[TIME_COL].iloc[-1])
+            html(theme.note(f"Akışta gelinen an: {last:%d.%m.%Y %H:%M} · "
+                            f"{tr_num(state.cursor)} / {tr_num(len(stream))} işlem"))
+    with right:
+        if not results.empty:
+            st.plotly_chart(watch_dial(results), use_container_width=True,
+                            config={"displayModeBar": False})
+            html(theme.note("Açı: saat · içten dışa: akıştaki sıra · kızıl: alarm"))
+
     if not results.empty:
-        last = results[TIME_COL].iloc[-1]
-        st.caption(f"Akışta gelinen an: {pd.Timestamp(last):%d.%m.%Y %H:%M} · "
-                   f"{state.cursor:,}/{len(stream):,} işlem".replace(",", "."))
-        st.markdown("#### Alarm kuyruğu")
+        html(theme.section("Kuyruk", "Alarmlar"))
         queue = alert_queue(results)
         if queue.empty:
-            st.info("Henüz alarm yok.")
+            html(theme.note("Henüz alarm yok."))
         else:
             st.dataframe(queue, use_container_width=True, hide_index=True, column_config={
+                "işlem no": st.column_config.NumberColumn("no", format="%d", width="small"),
+                "zaman": st.column_config.TextColumn("zaman", width="small"),
+                "kart": st.column_config.TextColumn("kart", width="small"),
                 "olasılık": st.column_config.ProgressColumn(
-                    "olasılık", format="percent", min_value=0.0, max_value=1.0),
+                    "olasılık", format="percent", min_value=0.0, max_value=1.0, width="small"),
                 "tutar ($)": st.column_config.NumberColumn("tutar", format="$%.2f"),
                 "beklenen kayıp ($)": st.column_config.NumberColumn("beklenen kayıp",
                                                                     format="$%.0f")})
-            st.caption("Gerçek etiket yalnızca bu simülasyonda bilinir; gerçekte etiketler "
-                       "(müşteri itirazı, inceleme sonucu) günler sonra gelir.")
+            html(theme.note("Gerçek etiket yalnızca bu simülasyonda bilinir; gerçekte "
+                            "etiketler (müşteri itirazı, inceleme sonucu) günler sonra gelir."))
 
 # --- 2. İşlem incele ---
 
 with tab_inspect:
     results = pd.DataFrame(st.session_state.get("results", []))
     alerts = results[results["karar"].eq("alarm")] if not results.empty else results
-    mode = st.radio("Kaynak", ["Akıştaki bir alarm", "Elle işlem gir"], horizontal=True)
+    html(theme.section("İnceleme", "Neden alarm?",
+                       "Akıştaki bir alarmı ya da elle girilen bir işlemi seçin; karar ve onu "
+                       "en çok etkileyen üç etken gösterilir."))
+    mode = st.radio("Kaynak", ["Akıştaki bir alarm", "Elle işlem gir"], horizontal=True,
+                    label_visibility="collapsed")
     if mode == "Akıştaki bir alarm":
         if alerts.empty:
-            st.info("Önce 'Canlı akış' sekmesinde işlem gönderin.")
+            html(theme.note("Önce “Canlı akış” sekmesinde işlem gönderin."))
         else:
             labels = {f"#{int(r.islem_no)} · {pd.Timestamp(r[TIME_COL]):%d.%m %H:%M} · "
                       f"{money(r.amt)} · {r.category}": i for i, r in alerts.iloc[::-1].iterrows()}
             choice = st.selectbox("Alarm", list(labels))
             row = alerts.loc[labels[choice]]
-            st.caption(f"Gerçek etiket: {'dolandırıcılık' if row[TARGET] == 1 else 'normal'}")
             show_result(row.to_dict(), row["amt"])
+            html(theme.note(f"Gerçek etiket: "
+                            f"{'dolandırıcılık' if row[TARGET] == 1 else 'normal'}"))
     else:
-        with st.form("manuel"):
+        with st.form("manuel", border=False):
             c1, c2, c3 = st.columns(3)
             cc = c1.number_input("Kart numarası", value=4613314721966, step=1, format="%d")
             amt = c2.number_input("Tutar ($)", min_value=0.01, value=912.40, step=10.0)
@@ -204,7 +254,7 @@ with tab_inspect:
             day = c4.date_input("Tarih", value=datetime(2020, 6, 21))
             hour = c5.time_input("Saat", value=time(23, 15))
             merchant = c6.text_input("Satıcı", value="Kutch, Hermiston and Farrell")
-            submitted = st.form_submit_button("Skorla (geçmişe kaydetmeden)", type="primary")
+            submitted = st.form_submit_button("Skorla · geçmişe kaydetmeden", type="primary")
         if submitted:
             if category is None:
                 st.warning("Kategori seçin.")
@@ -220,48 +270,53 @@ with tab_inspect:
 
 with tab_cost:
     scores = load_panel_scores()
+    html(theme.section("Karar kuralı", "Eşik ve maliyet",
+                       "Olasılık × tutar ≥ inceleme ücreti ise alarm. Ücret değişirse alarm "
+                       "sayısı, yakalanan tutar ve maliyet nasıl değişir? Veri: test dönemi, "
+                       "son değerlendirmeyle aynı model."))
     if scores is None:
         st.warning("Skor dosyası yok. Oluşturmak için: `make panel-data`")
     else:
-        st.markdown("Karar kuralı: **olasılık × tutar ≥ inceleme ücreti** ise alarm. İnceleme "
-                    "ücreti değişirse alarm sayısı, yakalanan tutar ve maliyet nasıl değişir? "
-                    "Veri: test dönemi (Faz 3.5 ile aynı model ve kalibrasyon).")
         cost = st.slider("Alarm başına inceleme ücreti ($)", 1, 100, int(REVIEW_COST), step=1)
         y, p, amt = scores[TARGET].to_numpy(), scores["p"].to_numpy(), scores["amt"].to_numpy()
         point = review_cost_point(p, amt, y, cost)
-        m = st.columns(5)
-        m[0].metric("Alarm", tr_num(point["alarm"]))
-        m[1].metric("Precision", pct(point["precision"]))
-        m[2].metric("Recall", pct(point["recall"]))
-        m[3].metric("Yakalanan tutar", pct(point["tutar recall"]))
-        m[4].metric("Toplam maliyet", money(point["maliyet"]),
-                    help="Kaçan dolandırıcılık tutarı + alarm sayısı × inceleme ücreti")
+        html(theme.kpis([
+            ("Alarm · 6 ay", tr_num(point["alarm"]), "signal"),
+            ("Precision", pct(point["precision"]), None),
+            ("Recall", pct(point["recall"]), None),
+            ("Yakalanan tutar", pct(point["tutar recall"]), None),
+            ("Toplam maliyet", money(point["maliyet"]), None),
+        ]))
         curve = review_cost_curve(p, amt, y, np.arange(1, 101))
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=curve["alarm"], y=curve["tutar recall"], mode="lines",
-                                 line=dict(color=NORMAL, width=2), name="ücret 1–100 $",
-                                 customdata=curve["inceleme ücreti"],
-                                 hovertemplate="ücret $%{customdata}<br>alarm %{x:,}<br>"
-                                               "yakalanan tutar %{y:.1%}<extra></extra>"))
-        fig.add_trace(go.Scatter(x=[point["alarm"]], y=[point["tutar recall"]], mode="markers",
-                                 marker=dict(color=FRAUD, size=12, line=dict(color="white",
-                                                                             width=2)),
-                                 name=f"seçilen: ${cost}", hoverinfo="skip"))
-        fig.update_layout(height=380, margin=dict(l=10, r=10, t=30, b=40),
+        fig.add_trace(go.Scatter(
+            x=curve["alarm"], y=curve["tutar recall"], mode="lines", name="ücret $1–100",
+            line=dict(color=theme.CALM, width=2), customdata=curve["inceleme ücreti"],
+            hovertemplate="ücret $%{customdata}<br>alarm %{x:,}<br>yakalanan tutar "
+                          "%{y:.1%}<extra></extra>"))
+        fig.add_trace(go.Scatter(
+            x=[point["alarm"]], y=[point["tutar recall"]], mode="markers+text",
+            name=f"seçilen ${cost}", text=[f"  ${cost}"], textposition="middle right",
+            textfont=dict(color=theme.PAPER, family=theme.MONO),
+            marker=dict(color=theme.SIGNAL, size=12, line=dict(color=theme.INK, width=2)),
+            hoverinfo="skip"))
+        # Dikey eksen başlığı döndürülünce kesiliyordu; eksenin anlamı grafiğin üstünde yazar
+        fig.update_layout(template="gece", height=380, showlegend=False,
+                          margin=dict(l=10, r=16, t=10, b=48),
                           xaxis_title="Alarm sayısı (6 ay)",
-                          yaxis_title="Yakalanan dolandırıcılık tutarı",
-                          yaxis_tickformat=".1%",      # dar aralıkta tam sayı etiketleri çakışır
-                          legend=dict(orientation="h", y=1.08))
-        st.plotly_chart(fig, use_container_width=True)
-        st.caption(f"Hiç alarm vermemenin maliyeti: {money_md(amt[y == 1].sum())}. Ücret arttıkça "
-                   "kural yalnızca beklenen kaybı yüksek işlemlere alarm verir: alarm sayısı "
-                   "düşer, küçük tutarlı dolandırıcılıklar kaçmaya başlar.")
+                          yaxis_tickformat=".1%")       # dar aralıkta tam sayı etiketleri çakışır
+        html(theme.note("↑ Yakalanan dolandırıcılık tutarı (dolandırıcılık tutarının yüzdesi)"))
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        html(theme.note(f"Hiç alarm vermemenin maliyeti: {money(amt[y == 1].sum())}. Ücret "
+                        "arttıkça kural yalnızca beklenen kaybı yüksek işlemlere alarm verir: "
+                        "alarm sayısı düşer, küçük tutarlı dolandırıcılıklar kaçmaya başlar."))
 
-# --- Durum satırı (en sonda: bu çalıştırmadaki işlemler dahil) ---
+# --- Başlık (en sonda: bu çalıştırmadaki işlemler dahil) ---
 
 try:
     h = client.health()
-    status_line.caption(f"API: {client.base_url} · kart geçmişi: {h['kart']} kart, "
-                        f"{tr_num(h['islem'])} işlem")
+    mast.markdown(theme.masthead(theme.status_line(client.base_url, h["kart"],
+                                                   tr_num(h["islem"]))),
+                  unsafe_allow_html=True)
 except ApiError as exc:
-    status_line.error(str(exc))
+    mast.error(str(exc))

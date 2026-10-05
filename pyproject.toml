@@ -36,6 +36,8 @@ select = ["E", "F", "I", "B", "UP"]
 [tool.ruff.lint.per-file-ignores]
 # Ham CSV örneği tek satırda gerçek dosyayla aynı biçimde kalmalı
 "tests/test_download.py" = ["E501"]
+# CSS kuralları ve HTML parçaları tek satırda daha okunur
+"src/card_fraud_detection/ui/theme.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

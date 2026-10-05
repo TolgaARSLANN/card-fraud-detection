@@ -8,12 +8,12 @@ from fastapi.testclient import TestClient
 from streamlit.testing.v1 import AppTest
 
 from card_fraud_detection.serving.app import app
+from card_fraud_detection.ui import theme
 from card_fraud_detection.ui.client import ApiClient, ApiError
 from card_fraud_detection.ui.logic import (
     alert_queue,
     mask_card,
     money,
-    money_md,
     review_cost_curve,
     review_cost_point,
     stream_kpis,
@@ -24,8 +24,31 @@ APP_PATH = Path(__file__).parents[1] / "src/card_fraud_detection/ui/app.py"
 
 def test_money_formats():
     assert money(1078.4) == "$1.078"
-    # Streamlit markdown'da iki '$' arası formül sayılır; markdown sürümü kaçışlı olmalı
-    assert money_md(10) == r"\$10"
+
+
+def test_theme_escapes_html_and_dollar():
+    """Dış metin (API'nin nedenleri, satıcı adı) HTML'e kaçışlı girmeli; '$' formüle
+    dönüşmesin diye HTML varlığı olmalı."""
+    out = theme.note("<script>x</script> olasılık × tutar ($912) ≥ ücret ($10)")
+    assert "<script>" not in out and "&lt;script&gt;" in out
+    assert "$" not in out and out.count("&#36;") == 2
+    kp = theme.kpis([("Kaçan tutar", "$1.078", "signal"), ("İşlem", "150", None)])
+    assert kp.count('class="gn-kpi"') == 2 and "&#36;1.078" in kp
+    assert kp.count("gn-tick") == 1
+    assert "--n:2" in kp                                     # varsayılan: hepsi tek satırda
+    assert "--n:3" in theme.kpis([("a", "1", None)] * 6, cols=3)
+
+
+def test_theme_reason_bars_scale_to_strongest():
+    out = theme.reasons([{"aciklama": "Tutar: $912", "katki": 10.0},
+                         {"aciklama": "Gece", "katki": 2.5}])
+    assert "width:100%" in out and "width:25%" in out
+    assert theme.reasons([]) == ""
+
+
+def test_theme_verdict_accent_follows_decision():
+    assert theme.SIGNAL in theme.verdict(True, "%99", "$1.070", "yüksek")
+    assert theme.CALM in theme.verdict(False, "%0", "$0", "düşük")
 
 
 def test_mask_card():
