@@ -706,7 +706,7 @@ mevcut testler aynen). Model, kalibrasyon, karar kuralı ve test değerlendirmes
     birinin ya bu listede ya da açıkça dışlananlarda olduğunu ve modelin tüm özelliklerinin bu
     sütunlardan hesaplanabildiğini denetler.
   - Lisans: veri seti CC0 (Kaggle API'si), Sparkov simülatörü MIT.
-- [ ] **Demo veri kesiti** (FAZ 5'te üretilecek). Öneri:
+- [x] **Demo veri kesiti** (FAZ 5.2'de üretildi). İlk öneri:
   - Kart geçmişi eksiksiz kalmalı (eğitim + doğrulama, ~1,3 M satır × 6 sütun; parquet
     olarak tahminen 25-40 MB). Kırpılırsa kartın geçmiş sayısı ve ortalaması değişir.
   - Akış için test döneminden birkaç gece yeterli (~30-50 bin işlem). Panelin sabit
