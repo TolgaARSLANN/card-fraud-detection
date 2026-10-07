@@ -1,5 +1,5 @@
 .PHONY: install data quality process eda features baselines train tune threshold errors final \
-        explain api consistency panel-data ui test lint
+        explain api consistency panel-data ui space-data test lint
 
 install:
 	pip install -e ".[dev,ml,api,ui]"
@@ -49,6 +49,10 @@ consistency:
 
 panel-data:
 	python -m card_fraud_detection.ui.prepare
+
+# Faz 5: Space için demo veri kesiti (build/space/), tutarlılık kontrolüyle
+space-data:
+	python -m card_fraud_detection.space.data
 
 # Tek komut: API çalışmıyorsa başlatır, paneli açar; Ctrl+C ikisini de kapatır
 ui:

@@ -19,14 +19,19 @@ from card_fraud_detection.models.calibration import Calibrator
 PANEL_SCORES = PROCESSED_DIR / "panel_scores.parquet"
 
 
-def main() -> None:
-    bundle = joblib.load(MODEL_PATH)
+def compute_scores(features_path=FEATURES_PATH, model_path=MODEL_PATH) -> pd.DataFrame:
+    """Test dönemi: tx_id, zaman, tutar, etiket ve kalibre olasılık (kart numarası yok)."""
+    bundle = joblib.load(model_path)
     cal = Calibrator.from_state(bundle["calibrator"])
     cols = ["tx_id", TIME_COL, "amt", TARGET, *bundle["features"]]
-    test = pd.read_parquet(FEATURES_PATH, columns=list(dict.fromkeys(cols)),
+    test = pd.read_parquet(features_path, columns=list(dict.fromkeys(cols)),
                            filters=[("split", "==", "test")])
     p = cal.transform(bundle["model"].predict_proba(test[bundle["features"]])[:, 1])
-    out = test[["tx_id", TIME_COL, "amt", TARGET]].assign(p=p.astype("float64"))
+    return test[["tx_id", TIME_COL, "amt", TARGET]].assign(p=p.astype("float64"))
+
+
+def main() -> None:
+    out = compute_scores()
     out.to_parquet(PANEL_SCORES, index=False)
     print(f"[ok] {PANEL_SCORES} ({len(out):,} işlem)")
 
