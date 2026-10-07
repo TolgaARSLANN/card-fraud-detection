@@ -1,5 +1,5 @@
 .PHONY: install data quality process eda features baselines train tune threshold errors final \
-        explain api consistency panel-data ui space-data test lint
+        explain api consistency panel-data ui space-lock space-data space space-smoke test lint
 
 install:
 	pip install -e ".[dev,ml,api,ui]"
@@ -53,6 +53,18 @@ panel-data:
 # Faz 5: Space için demo veri kesiti (build/space/), tutarlılık kontrolüyle
 space-data:
 	python -m card_fraud_detection.space.data
+
+# Space bağımlılıklarını sabitler: space/requirements.txt
+space-lock:
+	bash scripts/space_lock.sh
+
+# Space paketini build/space/ altında toplar ve denetler (önce: make space-data)
+space:
+	python -m card_fraud_detection.space.package
+
+# Paketi Docker ile Space'e yakın kısıtlarla (2 CPU, 3 GB) çalıştırıp üç sekmeyi dener
+space-smoke:
+	bash scripts/space_smoke.sh
 
 # Tek komut: API çalışmıyorsa başlatır, paneli açar; Ctrl+C ikisini de kapatır
 ui:

@@ -222,3 +222,15 @@ def demo_notice() -> str:
     return (f'<div class="gn-note-line" lang="tr" role="note" style="border:1px solid {CALM};'
             f'border-left:3px solid {CALM};background:{SURFACE};padding:0.7rem 1rem;'
             f'color:{PAPER};margin:0.4rem 0 1rem 0">{esc(DEMO_NOTICE)}</div>')
+
+
+def footer() -> str:
+    """Alt bilgi: veri kaynağı ve lisanslar (her iki modda)."""
+    kaggle = "https://www.kaggle.com/datasets/kartik2112/fraud-detection"
+    sparkov = "https://github.com/namebrandon/Sparkov_Data_Generation"
+    link = f'style="color:{MUTED};text-decoration:underline"'
+    return (f'<div class="gn-note-line" lang="tr" role="contentinfo" style="margin-top:2.4rem;'
+            f'padding-top:0.8rem;border-top:1px solid {HAIR}">Veri: <a {link} href="{kaggle}" '
+            f'target="_blank">Credit Card Transactions Fraud Detection</a> (Kaggle, CC0: Public '
+            f'Domain) · <a {link} href="{sparkov}" target="_blank">Sparkov Data Generation</a> '
+            f'simülatörüyle üretilmiş sentetik veri (MIT) · Kod: MIT, © 2026 Tolga Arslan</div>')

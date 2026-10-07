@@ -16,3 +16,6 @@ kaggle.json
 
 # pip install . (düzenlenemez kurulum) çıktısı
 build/
+
+# Windows Git Bash yerinde düzenleme artıkları
+.msys*

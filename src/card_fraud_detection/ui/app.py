@@ -197,7 +197,7 @@ with tab_stream:
             s1, s2 = st.columns([2, 1], vertical_alignment="bottom")
             preset = s1.selectbox("Başlangıç", list(PRESETS),
                                   index=list(PRESETS).index(state.start))
-            if s2.button("Bu andan başlat", use_container_width=True):
+            if s2.button("Bu andan başlat", width="stretch"):
                 client.start(preset)
                 until = PRESETS[preset]
                 state.cursor = 0 if until is None else int(
@@ -213,7 +213,7 @@ with tab_stream:
                                       max_value=datetime(2020, 12, 31))
             start_hour = s2.time_input("Saat", value=time(22, 0), key="start_hour")
             s3.write("")
-            if s3.button("Bu andan başlat", use_container_width=True):
+            if s3.button("Bu andan başlat", width="stretch"):
                 start = datetime.combine(start_day, start_hour)
                 with st.spinner("Kart geçmişi o ana kadar yeniden kuruluyor…"):
                     state.api_n = client.reset(until=start)["islem"]
@@ -241,7 +241,7 @@ with tab_stream:
     batch = c1.select_slider("Her adımda işlem", [10, 25, 50, 100, 200], value=50)
     # Demo: oturum başına akış sınırı (bellek ve işlem gücü ziyaretçi sayısıyla büyümesin)
     remaining = client.remaining if DEMO else len(stream)
-    if c2.button("Sonraki →", type="primary", use_container_width=True,
+    if c2.button("Sonraki →", type="primary", width="stretch",
                  disabled=not in_sync or remaining == 0):
         chunk = stream.iloc[state.cursor:state.cursor + min(batch, remaining)]
         bar = st.progress(0.0, text="Skorlanıyor…")
@@ -260,7 +260,7 @@ with tab_stream:
             if DEMO and client.remaining == 0:
                 st.rerun()                 # sınıra ulaşıldı: düğme hemen kilitli görünsün
         bar.empty()
-    if c3.button("↺ Baştan", use_container_width=True):
+    if c3.button("↺ Baştan", width="stretch"):
         state.api_n = client.reset()["islem"]      # demo: yalnızca bu oturumun katmanı
         state.cursor, state.results = 0, []
         st.rerun()
@@ -293,7 +293,7 @@ with tab_stream:
                             f"{tr_num(state.cursor)} / {tr_num(len(stream))} işlem"))
     with right:
         if not results.empty:
-            st.plotly_chart(watch_dial(results), use_container_width=True,
+            st.plotly_chart(watch_dial(results), width="stretch",
                             config={"displayModeBar": False})
             html(theme.note("Açı: saat · içten dışa: akıştaki sıra · kızıl: alarm"))
 
@@ -303,7 +303,7 @@ with tab_stream:
         if queue.empty:
             html(theme.note("Henüz alarm yok."))
         else:
-            st.dataframe(queue, use_container_width=True, hide_index=True, column_config={
+            st.dataframe(queue, width="stretch", hide_index=True, column_config={
                 "işlem no": st.column_config.NumberColumn("no", format="%d", width="small"),
                 "zaman": st.column_config.TextColumn("zaman", width="small"),
                 "kart": st.column_config.TextColumn("kart", width="small"),
@@ -408,7 +408,7 @@ with tab_cost:
                           xaxis_title="Alarm sayısı (6 ay)",
                           yaxis_tickformat=".1%")       # dar aralıkta tam sayı etiketleri çakışır
         html(theme.note("↑ Yakalanan dolandırıcılık tutarı (dolandırıcılık tutarının yüzdesi)"))
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
         html(theme.note(f"Hiç alarm vermemenin maliyeti: {money(amt[y == 1].sum())}. Ücret "
                         "arttıkça kural yalnızca beklenen kaybı yüksek işlemlere alarm verir: "
                         "alarm sayısı düşer, küçük tutarlı dolandırıcılıklar kaçmaya başlar."))
@@ -422,3 +422,5 @@ try:
         label="Demo · yerel skorlama" if DEMO else "API bağlı")), unsafe_allow_html=True)
 except ApiError as exc:
     mast.error("Sunucu hatası" if DEMO else str(exc))
+
+html(theme.footer())
