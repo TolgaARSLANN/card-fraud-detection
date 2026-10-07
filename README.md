@@ -131,6 +131,38 @@ Yalnızca API ya da yalnızca panel için daha küçük kurulumlar yeterlidir:
 `pip install ".[api]"` / `pip install ".[ui]"`. Paket düzenlenebilir olmayan biçimde
 kurulduğunda komutlar proje kökünden çalıştırılmalı ya da `CARD_FRAUD_ROOT` verilmelidir.
 
+## Demo modu (herkese açık yayın için)
+`DEMO_MODE=1` ortam değişkeniyle açılır; varsayılan kapalıdır ve kapalıyken yukarıdaki yerel
+davranış aynen sürer.
+```bash
+DEMO_MODE=1 streamlit run src/card_fraud_detection/ui/app.py
+```
+- **Panel:** API'ye gitmeden aynı süreçte skorlar. Model ve yüklenmiş kart geçmişi tüm
+  ziyaretçiler için tek kopyadır. Her oturum yalnızca kendi eklediği işlemleri ayrı bir
+  katmanda tutar, bu yüzden ziyaretçiler birbirini etkilemez. Oturum başına 2.000 akış
+  işlemi sınırı vardır. Bellekte en fazla 50 oturum tutulur; 30 dakika işlem yapmayan
+  oturum silinir. Kart numarası serbestçe girilemez; maskeli etiketli sentetik kartlardan
+  seçilir. Başlangıç anı üç sabit seçenekle sınırlıdır. Üstte "veriler sentetiktir,
+  gerçek kart ya da kişisel bilgi girmeyin" notu sürekli görünür ve hata ayrıntıları
+  gösterilmez.
+- **API** (`DEMO_MODE=1 uvicorn ...`):
+  - `/reset` hiç tanımlanmaz.
+  - `/score` geçmişe kayıt yapmaz ve yalnızca veri setindeki kartları kabul eder.
+  - IP başına dakikada 60 istek sınırı vardır (aşılınca 429). İstemci IP'si
+    `X-Forwarded-For`'un güvenilen vekil tarafındaki değerinden alınır (`TRUSTED_PROXY_HOPS`,
+    varsayılan 1).
+  - İstek gövdesi en fazla 10 KB olabilir (aşılınca 413).
+  - Loglarda kart numaraları maskelenir; beklenmeyen hatalarda iç ayrıntı dönmez.
+- **Demo verisi** yalnızca şu sütunları içerir: `tx_id`, `trans_date_trans_time`,
+  `cc_num`, `amt`, `category`, `merchant`, `is_fraud`, `split` (`data/demo.py`). Ad, adres,
+  doğum tarihi, cinsiyet, meslek, konum ve işlem no gibi sütunlar hiç girmez; bunu bir test
+  denetler.
+- **Lisans:** Veri seti Kaggle'da **CC0: Public Domain** lisanslıdır
+  ([kartik2112/fraud-detection](https://www.kaggle.com/datasets/kartik2112/fraud-detection),
+  Kaggle API'sinden 2026-10-07'de doğrulandı). Veriyi üreten Sparkov simülatörü
+  ([namebrandon/Sparkov_Data_Generation](https://github.com/namebrandon/Sparkov_Data_Generation))
+  MIT lisanslıdır. Yeniden dağıtım serbesttir; kaynağı belirtmek yine de iyi bir uygulamadır.
+
 ## Sınırlamalar
 - **Sentetik veri.** Bulgular Sparkov simülatörünün davranışını yansıtır. Örneğin
   dolandırıcılıkta en yüksek tutar $1.372'dir; model "bu tutarın üzerinde dolandırıcılık yok"

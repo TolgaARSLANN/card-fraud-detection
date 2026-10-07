@@ -660,6 +660,61 @@ kalıcı bir testle güvenceye alındı.
     ve panel, tam çalıştırma sırası ve yeni sınırlamalar eklendi. Sayılar raporlardan
     karşılaştırılarak yazıldı.
 
+## Demo modu (FAZ 5 öncesi, herkese açık yayın hazırlığı)
+
+Servis ve panel tek kullanıcılı yerel kullanım için tasarlanmıştı. İnternete açılmadan önce
+riskler tek bir ayarla, `DEMO_MODE` ile kapatıldı (varsayılan kapalı; kapalıyken davranış ve
+mevcut testler aynen). Model, kalibrasyon, karar kuralı ve test değerlendirmesine dokunulmadı.
+
+- [x] **API sertleştirme** (`serving/app.py` `create_app(demo)`, `serving/guard.py`)
+  - `/reset` tanımlanmaz ve OpenAPI şemasında yoktur.
+  - `/score` kayıt yapmaz. Yalnızca geçmişte bulunan sentetik kartları kabul eder;
+    diğerlerine 422 döner ve numarayı yanıtta tekrarlamaz.
+  - IP başına kayan pencereli hız sınırı vardır (dakikada 60, aşımda 429 + `Retry-After`;
+    izlenen IP sayısı da sınırlı). İstemci IP'si `X-Forwarded-For`'un sağdan güvenilen
+    vekil sayısı kadar içerideki değeridir. En soldaki değere güvenilmez, çünkü istemci onu
+    kendisi yazabilir.
+  - Gövde sınırı 10 KB'tır; `Content-Length` yazmadan parça parça gönderilen gövdeler de
+    yakalanır (413).
+  - Loglarda 12-19 haneli sayılar maskelenir. uvicorn erişim logunun yapısı bozulmaz.
+  - Beklenmeyen hatada yalnızca "Sunucu hatası" döner.
+  - `consistency.check()` ayrıldı: `make consistency`'nin kontrolü CI'da sentetik veriyle de
+    koşuyor. Gerçek veriyle `make consistency` hâlâ TUTARLI.
+- [x] **Oturum yalıtımı** (`serving/history.py` `OverlayHistoryStore`, `ui/demo_backend.py`)
+  - Model ve yüklenmiş geçmiş `st.cache_resource` ile tek kopyadır. Her oturumun yalnızca
+    kendi eklediği işlemleri tutan bir katmanı vardır; taban oturum başına kopyalanmaz (testle
+    doğrulandı: kart tabloları aynı nesne).
+  - Katmanla skorlama, düz geçmişe eklemeyle birebir aynı sonucu verir.
+  - Katmanda kart başına 200, toplamda 5.000 eklenen kayıt sınırı vardır; aşılınca en eski
+    eklenen kayıt düşer. Taban hiç kırpılmaz, çünkü kırpılsaydı kartın geçmiş sayısı ve
+    ortalaması gibi özellikler raporlanandan farklı hesaplanırdı.
+  - Oturum kaydında en fazla 50 oturum tutulur; 30 dakika işlem yapmayan oturum silinir.
+    Kayıt doluysa en uzun süredir boştaki oturum (2 dakikadan uzun boştaysa) silinir; aksi
+    hâlde "demo yoğun" denir. Toplam bellek ≈ 50 × oturum sınırıdır.
+  - Oturum başına akış sınırı 2.000 işlemdir ve "Baştan" ile sıfırlanmaz.
+- [x] **Panel**
+  - Sentetik veri ve gerçek bilgi girilmemesi notu sürekli görünür.
+  - Kart serbest girilmez; maskeli etiketli listeden seçilir ("Kart 12 · •••• 1966").
+    Satıcı da listeden seçilir.
+  - Başlangıç anı üç sabit seçenekle sınırlıdır; her birinin geçmişi bir kez kurulur ve
+    paylaşılır.
+  - Ortak durumu sıfırlama ve eşitleme kontrolleri yoktur; hata ayrıntısı gösterilmez.
+  - Tarayıcıda doğrulandı: iki sekme ayrı geçmiş gördü; yerel mod (API ile) değişmedi.
+- [x] **Veri sözleşmesi** (`data/demo.py`)
+  - Demo verisinde yalnızca `tx_id`, `trans_date_trans_time`, `cc_num`, `amt`,
+    `category`, `merchant`, `is_fraud` ve `split` bulunur. Test, ham Kaggle sütunlarının her
+    birinin ya bu listede ya da açıkça dışlananlarda olduğunu ve modelin tüm özelliklerinin bu
+    sütunlardan hesaplanabildiğini denetler.
+  - Lisans: veri seti CC0 (Kaggle API'si), Sparkov simülatörü MIT.
+- [ ] **Demo veri kesiti** (FAZ 5'te üretilecek). Öneri:
+  - Kart geçmişi eksiksiz kalmalı (eğitim + doğrulama, ~1,3 M satır × 6 sütun; parquet
+    olarak tahminen 25-40 MB). Kırpılırsa kartın geçmiş sayısı ve ortalaması değişir.
+  - Akış için test döneminden birkaç gece yeterli (~30-50 bin işlem). Panelin sabit
+    başlangıçları bu gecelerle eşleşmeli.
+  - Kart numaraları takma numaralarla değiştirilmeli (model yalnızca gruplama için kullanır).
+  - "Eşik ve maliyet" sekmesi için `panel_scores.parquet` (tx_id, zaman, tutar, etiket,
+    olasılık) eklenmeli.
+
 ## FAZ 5: Yayına Alma ve Belgeler · ~3-4 gün
 
 - [ ] **5.1 Docker** (`Dockerfile`, `docker-compose.yml`: api + ui)
