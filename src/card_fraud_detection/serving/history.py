@@ -79,6 +79,9 @@ class CardHistoryStore:
     def has_card(self, card: int) -> bool:
         return int(card) in self._cards
 
+    def cards(self) -> list[int]:
+        return sorted(self._cards)
+
     @property
     def n_cards(self) -> int:
         return len(self._cards)
@@ -138,6 +141,9 @@ class OverlayHistoryStore(CardHistoryStore):
 
     def has_card(self, card: int) -> bool:
         return self.base.has_card(card) or int(card) in self._added
+
+    def cards(self) -> list[int]:
+        return sorted(set(self.base.cards()) | set(self._added))
 
     @property
     def n_added(self) -> int:

@@ -11,6 +11,7 @@ Sekmeler: Canlı akış (test dönemi işlemleri sırayla API'ye gönderilir, al
 from __future__ import annotations
 
 from datetime import datetime, time
+from uuid import uuid4
 
 import numpy as np
 import pandas as pd
@@ -18,13 +19,14 @@ import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
 
-from card_fraud_detection.config import REVIEW_COST, TARGET, TIME_COL
+from card_fraud_detection.config import REVIEW_COST, TARGET, TIME_COL, demo_mode
 from card_fraud_detection.data.clean import OUT_PATH as TRANSACTIONS_PATH
 from card_fraud_detection.formatting import tr_num
 from card_fraud_detection.ui import theme
 from card_fraud_detection.ui.client import ApiClient, ApiError
 from card_fraud_detection.ui.logic import (
     alert_queue,
+    mask_card,
     money,
     resync_point,
     review_cost_curve,
@@ -49,9 +51,24 @@ except TypeError:   # eski sürüm: kullanımdan kalkan bileşen yolu
                     height=0)
 
 
+DEMO = demo_mode()
+if DEMO:   # herkese açık demo: hata olursa yığın izi ve dosya yolları ziyaretçiye gösterilmez
+    st.set_option("client.showErrorDetails", "none")
+
+
 @st.cache_resource
 def get_client() -> ApiClient:
     return ApiClient()
+
+
+@st.cache_resource(show_spinner="Model ve kart geçmişi yükleniyor…")
+def demo_shared():
+    """Demo: model, açıklayıcı ve yüklenmiş geçmiş tüm oturumlar için TEK kopya; oturumlar
+    yalnızca kendi eklediklerini katmanlarında tutar (ui/demo_backend.py)."""
+    from card_fraud_detection.serving.service import ScoringService
+    from card_fraud_detection.ui.demo_backend import SessionRegistry, SharedBases
+    service = ScoringService.load()
+    return service, SessionRegistry(SharedBases(service))
 
 
 @st.cache_data(show_spinner="Test dönemi işlemleri yükleniyor…")
@@ -121,21 +138,31 @@ def show_result(res: dict, amt: float) -> None:
 
 # --- Başlık ve bağlantı ---
 
-client = get_client()
-try:
-    api_health = client.health()
-except ApiError as exc:
-    html(theme.masthead("bağlantı yok"))
-    st.error(f"{exc}\n\nAPI'yi başlatmak için ayrı bir terminalde: `make api`")
-    st.stop()
-mast = st.empty()          # sayfa sonunda doldurulur: bu çalıştırmadaki işlemler dahil
-
-tab_stream, tab_inspect, tab_cost = st.tabs(["Canlı akış", "İşlem incele", "Eşik ve maliyet"])
-
-# --- 1. Canlı akış ---
-
-with tab_stream:
-    stream = load_stream()
+if DEMO:
+    from card_fraud_detection.ui.demo_backend import PRESETS, DemoBackend, DemoBusy
+    service, registry = demo_shared()
+    sid = st.session_state.setdefault("demo_sid", uuid4().hex)
+    try:
+        state, fresh = registry.session(sid)
+    except DemoBusy as exc:
+        html(theme.masthead("demo dolu"))
+        html(theme.demo_notice())
+        st.warning(str(exc))
+        st.stop()
+    client = DemoBackend(service, registry, state)
+    if fresh and st.session_state.get("demo_seen"):
+        st.info("Oturumunuz uzun süre işlem yapılmadığı için sıfırlandı; akış baştan başlıyor.")
+    st.session_state.demo_seen = True
+    state.api_n = None             # demo: ortak API durumu yok, kayma denetimi gerekmez
+    api_health, in_sync = client.health(), True
+else:
+    client = get_client()
+    try:
+        api_health = client.health()
+    except ApiError as exc:
+        html(theme.masthead("bağlantı yok"))
+        st.error(f"{exc}\n\nAPI'yi başlatmak için ayrı bir terminalde: `make api`")
+        st.stop()
     state = st.session_state
     if "cursor" not in state:
         # Yeni oturum: akış imleci baştan başlar; API'nin geçmişi de başa dönmeli, yoksa önceki
@@ -147,25 +174,51 @@ with tab_stream:
     # API yeniden başlamış ya da başka bir sekme geçmişi değiştirmiştir; o hâlde gönderilen
     # işlemlerin özellikleri eksik geçmişle hesaplanırdı. Akış durdurulur, eşitleme önerilir.
     in_sync = api_health["islem"] == state.api_n
+mast = st.empty()          # sayfa sonunda doldurulur: bu çalıştırmadaki işlemler dahil
+if DEMO:
+    html(theme.demo_notice())
 
+tab_stream, tab_inspect, tab_cost = st.tabs(["Canlı akış", "İşlem incele", "Eşik ve maliyet"])
+
+# --- 1. Canlı akış ---
+
+with tab_stream:
+    stream = load_stream()
     html(theme.section("Test dönemi · 21 Haziran – 31 Aralık 2020", "Akış",
-                       "İşlemler sırayla API'ye gönderilir; her biri skorlanıp kartın "
-                       "geçmişine eklenir. Dolandırıcılık çoğunlukla gece gelir."))
-    with st.expander("Başlangıç anı"):
-        st.caption("Atlanan işlemler skorlanmaz ama kartların geçmişine eklenir; özellikler "
-                   "tutarlı kalır.")
-        s1, s2, s3 = st.columns([1, 1, 1])
-        start_day = s1.date_input("Tarih", value=datetime(2020, 6, 21), key="start_day",
-                                  min_value=datetime(2020, 6, 21), max_value=datetime(2020, 12, 31))
-        start_hour = s2.time_input("Saat", value=time(22, 0), key="start_hour")
-        s3.write("")
-        if s3.button("Bu andan başlat", use_container_width=True):
-            start = datetime.combine(start_day, start_hour)
-            with st.spinner("Kart geçmişi o ana kadar yeniden kuruluyor…"):
-                state.api_n = client.reset(until=start)["islem"]
-            state.cursor = int(stream[TIME_COL].searchsorted(pd.Timestamp(start)))
-            state.results = []
-            st.rerun()
+                       ("İşlemler sırayla skorlanıp yalnızca sizin oturumunuzdaki kart "
+                        "geçmişine eklenir" if DEMO else
+                        "İşlemler sırayla API'ye gönderilir; her biri skorlanıp kartın "
+                        "geçmişine eklenir") + ". Dolandırıcılık çoğunlukla gece gelir."))
+    if DEMO:
+        with st.expander("Başlangıç anı"):
+            st.caption("Atlanan işlemler skorlanmaz ama kartların geçmişine eklenir; özellikler "
+                       "tutarlı kalır. Değişiklik yalnızca sizin oturumunuzu etkiler.")
+            s1, s2 = st.columns([2, 1], vertical_alignment="bottom")
+            preset = s1.selectbox("Başlangıç", list(PRESETS),
+                                  index=list(PRESETS).index(state.start))
+            if s2.button("Bu andan başlat", use_container_width=True):
+                client.start(preset)
+                until = PRESETS[preset]
+                state.cursor = 0 if until is None else int(
+                    stream[TIME_COL].searchsorted(pd.Timestamp(until)))
+                st.rerun()
+    else:
+        with st.expander("Başlangıç anı"):
+            st.caption("Atlanan işlemler skorlanmaz ama kartların geçmişine eklenir; özellikler "
+                       "tutarlı kalır.")
+            s1, s2, s3 = st.columns([1, 1, 1])
+            start_day = s1.date_input("Tarih", value=datetime(2020, 6, 21), key="start_day",
+                                      min_value=datetime(2020, 6, 21),
+                                      max_value=datetime(2020, 12, 31))
+            start_hour = s2.time_input("Saat", value=time(22, 0), key="start_hour")
+            s3.write("")
+            if s3.button("Bu andan başlat", use_container_width=True):
+                start = datetime.combine(start_day, start_hour)
+                with st.spinner("Kart geçmişi o ana kadar yeniden kuruluyor…"):
+                    state.api_n = client.reset(until=start)["islem"]
+                state.cursor = int(stream[TIME_COL].searchsorted(pd.Timestamp(start)))
+                state.results = []
+                st.rerun()
 
     if not in_sync:
         st.warning(
@@ -185,8 +238,11 @@ with tab_stream:
 
     c1, c2, c3 = st.columns([2, 1, 1], vertical_alignment="bottom")
     batch = c1.select_slider("Her adımda işlem", [10, 25, 50, 100, 200], value=50)
-    if c2.button("Sonraki →", type="primary", use_container_width=True, disabled=not in_sync):
-        chunk = stream.iloc[state.cursor:state.cursor + batch]
+    # Demo: oturum başına akış sınırı (bellek ve işlem gücü ziyaretçi sayısıyla büyümesin)
+    remaining = client.remaining if DEMO else len(stream)
+    if c2.button("Sonraki →", type="primary", use_container_width=True,
+                 disabled=not in_sync or remaining == 0):
+        chunk = stream.iloc[state.cursor:state.cursor + min(batch, remaining)]
         bar = st.progress(0.0, text="Skorlanıyor…")
         try:
             for i, (_, row) in enumerate(chunk.iterrows(), start=1):
@@ -194,15 +250,25 @@ with tab_stream:
                 res = client.score({**tx, TIME_COL: tx[TIME_COL].to_pydatetime()})
                 state.results.append({**tx, TARGET: int(row[TARGET]), **res})
                 state.cursor += 1          # hata olursa aynı işlem ikinci kez gönderilmesin
-                state.api_n += 1
+                if not DEMO:
+                    state.api_n += 1
                 bar.progress(i / len(chunk), text=f"Skorlanıyor… {i}/{len(chunk)}")
         except ApiError as exc:
             st.error(str(exc))
+        else:
+            if DEMO and client.remaining == 0:
+                st.rerun()                 # sınıra ulaşıldı: düğme hemen kilitli görünsün
         bar.empty()
     if c3.button("↺ Baştan", use_container_width=True):
-        state.api_n = client.reset()["islem"]
+        state.api_n = client.reset()["islem"]      # demo: yalnızca bu oturumun katmanı
         state.cursor, state.results = 0, []
         st.rerun()
+    if DEMO:
+        remaining = client.remaining               # bu çalıştırmada skorlananlar düşülmüş
+        left_note = (" · sınıra ulaşıldı; yeni bir sekmede yeni oturum açabilirsiniz"
+                     if remaining == 0 else "")
+        html(theme.note(f"Bu oturumda skorlanabilecek işlem: {tr_num(remaining)} / "
+                        f"{tr_num(client.stream_limit)}{left_note}"))
 
     results = pd.DataFrame(state.results)
     k = stream_kpis(results)
@@ -251,7 +317,7 @@ with tab_stream:
 # --- 2. İşlem incele ---
 
 with tab_inspect:
-    results = pd.DataFrame(st.session_state.get("results", []))
+    results = pd.DataFrame(state.results)
     alerts = results[results["karar"].eq("alarm")] if not results.empty else results
     html(theme.section("İnceleme", "Neden alarm?",
                        "Akıştaki bir alarmı ya da elle girilen bir işlemi seçin; karar ve onu "
@@ -272,14 +338,23 @@ with tab_inspect:
     else:
         with st.form("manuel", border=False):
             c1, c2, c3 = st.columns(3)
-            cc = c1.number_input("Kart numarası", value=4613314721966, step=1, format="%d")
+            if DEMO:
+                # Serbest numara yok: yalnızca veri setindeki sentetik kartlar, maskeli etiketle
+                cards = client.state.store.cards()
+                labels = {f"Kart {i} · {mask_card(c)}": c for i, c in enumerate(cards, start=1)}
+                cc = labels[c1.selectbox("Kart (sentetik)", list(labels))]
+            else:
+                cc = c1.number_input("Kart numarası", value=4613314721966, step=1, format="%d")
             amt = c2.number_input("Tutar ($)", min_value=0.01, value=912.40, step=10.0)
             category = c3.selectbox("Kategori", sorted(load_stream()["category"].unique()),
                                     index=None, placeholder="Seçin")
             c4, c5, c6 = st.columns(3)
             day = c4.date_input("Tarih", value=datetime(2020, 6, 21))
             hour = c5.time_input("Saat", value=time(23, 15))
-            merchant = c6.text_input("Satıcı", value="Kutch, Hermiston and Farrell")
+            if DEMO:
+                merchant = c6.selectbox("Satıcı", sorted(load_stream()["merchant"].unique()))
+            else:
+                merchant = c6.text_input("Satıcı", value="Kutch, Hermiston and Farrell")
             submitted = st.form_submit_button("Skorla · geçmişe kaydetmeden", type="primary")
         if submitted:
             if category is None:
@@ -341,8 +416,8 @@ with tab_cost:
 
 try:
     h = client.health()
-    mast.markdown(theme.masthead(theme.status_line(client.base_url, h["kart"],
-                                                   tr_num(h["islem"]))),
-                  unsafe_allow_html=True)
+    mast.markdown(theme.masthead(theme.status_line(
+        "oturumunuza özel geçmiş" if DEMO else client.base_url, h["kart"], tr_num(h["islem"]),
+        label="Demo · yerel skorlama" if DEMO else "API bağlı")), unsafe_allow_html=True)
 except ApiError as exc:
-    mast.error(str(exc))
+    mast.error("Sunucu hatası" if DEMO else str(exc))

@@ -159,8 +159,8 @@ def masthead(status_html: str) -> str:
             f'</div>')
 
 
-def status_line(base_url: str, cards: int, transactions: str) -> str:
-    return (f'<span class="gn-dot"></span><b>API bağlı</b><br>{esc(base_url)}<br>'
+def status_line(base_url: str, cards: int, transactions: str, label: str = "API bağlı") -> str:
+    return (f'<span class="gn-dot"></span><b>{esc(label)}</b><br>{esc(base_url)}<br>'
             f'{cards} kart · {esc(transactions)} işlem geçmişi')
 
 
@@ -210,3 +210,15 @@ def reasons(items: list[dict]) -> str:
 
 def note(text: str) -> str:
     return f'<div class="gn-note-line" lang="tr">{esc(text)}</div>'
+
+
+DEMO_NOTICE = ("Herkese açık demo · Veriler tamamen sentetiktir (Sparkov simülatörü); gerçek kişi "
+               "ya da kart yoktur. Bu proje eğitim ve portföy amaçlıdır. Gerçek kart numarası "
+               "ya da kişisel bilgi girmeyin.")
+
+
+def demo_notice() -> str:
+    """Demo modunda sayfanın üstünde kalıcı bilgilendirme bandı (alarm değil: sakin vurgu)."""
+    return (f'<div class="gn-note-line" lang="tr" role="note" style="border:1px solid {CALM};'
+            f'border-left:3px solid {CALM};background:{SURFACE};padding:0.7rem 1rem;'
+            f'color:{PAPER};margin:0.4rem 0 1rem 0">{esc(DEMO_NOTICE)}</div>')
