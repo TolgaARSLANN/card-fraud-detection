@@ -96,18 +96,21 @@ class ScoringService:
         service.transactions = tx
         return service
 
-    def features_for(self, tx: dict) -> pd.DataFrame:
-        """Yeni işlemin özellik satırı (1 satırlık tablo), kart geçmişiyle birlikte hesaplanır."""
+    def features_for(self, tx: dict, store: CardHistoryStore | None = None) -> pd.DataFrame:
+        """Yeni işlemin özellik satırı (1 satırlık tablo), kart geçmişiyle birlikte hesaplanır.
+        `store` verilirse servisin kendi geçmişi yerine o kullanılır (demo: oturum katmanı)."""
+        store = self.store if store is None else store
         with self._lock:
-            frame, pos = self.store.with_new(tx)
+            frame, pos = store.with_new(tx)
         feats = build_features(frame, self.stats)
         return feats.iloc[[pos]]
 
-    def score(self, tx: dict, save: bool = True) -> dict:
+    def score(self, tx: dict, save: bool = True, store: CardHistoryStore | None = None) -> dict:
+        store = self.store if store is None else store
         # Özellik hesabı ile geçmişe ekleme arasında başka bir işlem araya girmemeli
         with self._lock:
-            row = self.features_for(tx)
-            tx_id = self.store.add(tx) if save else None
+            row = self.features_for(tx, store)
+            tx_id = store.add(tx) if save else None
         x = row[self.features]
         raw = float(self.model.predict_proba(x)[:, 1][0])
         p = float(self.calibrator.transform(np.array([raw]))[0])
