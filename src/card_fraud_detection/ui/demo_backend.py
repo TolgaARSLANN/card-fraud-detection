@@ -20,6 +20,7 @@ from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
 
 from card_fraud_detection.config import (
@@ -28,6 +29,7 @@ from card_fraud_detection.config import (
     DEMO_MAX_SESSIONS,
     DEMO_SESSION_TTL,
     DEMO_STREAM_LIMIT,
+    TIME_COL,
 )
 from card_fraud_detection.serving.history import CardHistoryStore, OverlayHistoryStore
 from card_fraud_detection.serving.service import ScoringService
@@ -63,12 +65,19 @@ class DemoSession:
 
 
 class SharedBases:
-    """Başlangıçların taban geçmişleri: tembel kurulur, tek kopya, iş parçacığı güvenli."""
+    """Başlangıçların taban geçmişleri: tembel kurulur, tek kopya, iş parçacığı güvenli.
+
+    Bir başlangıç, yüklenmiş geçmişin tam kopyası değil, onun üstünde sınırsız bir katmandır:
+    yalnızca yüklenmiş geçmişte olmayan ve o andan önceki işlemleri tutar. Her başlangıç kendi
+    kilidiyle yalnızca bir kez kurulur; katman tamamen kurulduktan sonra paylaşıma girer (aynı
+    anda seçen ikinci oturum bekler, çift kurulum ya da yarım katman olmaz)."""
 
     def __init__(self, service: ScoringService, presets: dict[str, str | None] = PRESETS):
         self.service, self.presets = service, presets
         self._bases: dict[str, CardHistoryStore] = {}
-        self._lock = threading.Lock()
+        self._locks: dict[str, threading.Lock] = {}
+        self._guard = threading.Lock()
+        self.builds = 0                                 # kaç katman kuruldu (test ve ölçüm)
 
     @property
     def default(self) -> str:
@@ -78,11 +87,21 @@ class SharedBases:
         until = self.presets[key]
         if until is None:
             return self.service.store
-        with self._lock:
+        if (ready := self._bases.get(key)) is not None:
+            return ready
+        with self._guard:
+            lock = self._locks.setdefault(key, threading.Lock())
+        with lock:
             if key not in self._bases:
-                self._bases[key] = CardHistoryStore.from_transactions(
-                    self.service.transactions, until)
+                self._bases[key] = self._build(until)
+                self.builds += 1
             return self._bases[key]
+
+    def _build(self, until: str) -> OverlayHistoryStore:
+        base, tx = self.service.store, self.service.transactions
+        loaded = np.concatenate([base.history(c)["tx_id"].to_numpy() for c in base.cards()])
+        rows = tx[(tx[TIME_COL] < pd.Timestamp(until)) & ~tx["tx_id"].isin(loaded)]
+        return OverlayHistoryStore.layered(base, rows)
 
 
 class SessionRegistry:

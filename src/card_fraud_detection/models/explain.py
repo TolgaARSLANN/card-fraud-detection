@@ -40,8 +40,18 @@ def explainer(model) -> shap.TreeExplainer:
     return shap.TreeExplainer(booster)
 
 
-def shap_values(expl: shap.TreeExplainer, x: pd.DataFrame) -> pd.DataFrame:
-    """Satır × özellik SHAP değerleri (log-oran). İkili sınıflamada tek çıktı kullanılır."""
+def shap_values(expl: shap.TreeExplainer, x: pd.DataFrame,
+                num_threads: int | None = None) -> pd.DataFrame:
+    """Satır × özellik SHAP değerleri (log-oran). İkili sınıflamada tek çıktı kullanılır.
+
+    `num_threads` verilirse katkılar, SHAP'ın LightGBM için kullandığı aynı çağrıyla
+    (`Booster.predict(pred_contrib=True)`) ama sabit iş parçacığı sayısıyla hesaplanır. SHAP bu
+    çağrıyı iş parçacığı belirtmeden yapar (tüm çekirdekler); demo'da eşzamanlı oturumlar
+    birbirini boğmasın diye 1 verilir. Sonuç SHAP yoluyla aynıdır (testle denetlenir)."""
+    booster = getattr(getattr(expl, "model", None), "original_model", None)
+    if num_threads is not None and hasattr(booster, "predict") and hasattr(booster, "num_trees"):
+        phi = np.asarray(booster.predict(x, pred_contrib=True, num_threads=num_threads))
+        return pd.DataFrame(phi[:, :-1], index=x.index, columns=x.columns)   # son sütun: taban
     with warnings.catch_warnings():
         # SHAP her çağrıda LightGBM çıktı biçimiyle ilgili bilgi uyarısı yazar; aşağıda ele alınır
         warnings.filterwarnings("ignore", message="LightGBM binary classifier with TreeExplainer")

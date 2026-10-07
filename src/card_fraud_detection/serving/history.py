@@ -8,6 +8,7 @@ yalnızca son 7 günü ve kümülatif özetleri tutan bir yapıya geçilebilir.
 
 from __future__ import annotations
 
+import threading
 from collections import deque
 
 import pandas as pd
@@ -99,13 +100,34 @@ class OverlayHistoryStore(CardHistoryStore):
     toplamda sınırlıdır; sınır aşılınca en eski *eklenen* kayıt düşer. (Tabana dokunulmaz:
     kırpılsaydı kartın geçmiş sayısı ve ortalaması gibi özellikler raporlanandan farklı
     hesaplanırdı. Düşme yalnızca bir güvenlik ağıdır; panelin akış sınırı bunun altındadır.)
+
+    Sınır verilmezse (None) katman sınırsızdır: demo'nun sabit başlangıçları böyle kurulur
+    (`layered`). Katmanlar üst üste binebilir (oturum → başlangıç → yüklenmiş geçmiş).
+    Her katmanın kendi kilidi vardır: farklı oturumlar birbirini beklemeden skorlanır.
     """
 
-    def __init__(self, base: CardHistoryStore, max_per_card: int, max_total: int):
+    def __init__(self, base: CardHistoryStore, max_per_card: int | None = None,
+                 max_total: int | None = None):
         self.base, self.max_per_card, self.max_total = base, max_per_card, max_total
         self._added: dict[int, pd.DataFrame] = {}
         self._order: deque[int] = deque()           # eklenme sırası (kart), en eskisi solda
+        self._n_added = 0
         self._next_id = base._next_id
+        self.lock = threading.RLock()
+
+    @classmethod
+    def layered(cls, base: CardHistoryStore, transactions: pd.DataFrame) -> OverlayHistoryStore:
+        """Tabanın üstüne veri setindeki işlemleri (kendi tx_id'leriyle) toplu ekleyen sınırsız
+        katman. Tabandaki işlemlerin hepsi bu işlemlerden önce olmalıdır; sonuç, aynı işlemlerle
+        baştan kurulan geçmişle (`from_transactions`) aynı sırayı verir."""
+        layer = cls(base)
+        frame = _normalize(transactions).sort_values([TIME_COL, "tx_id"], kind="stable")
+        layer._added = {int(card): g.reset_index(drop=True)
+                        for card, g in frame.groupby(CARD_COL, sort=False)}
+        layer._n_added = len(frame)
+        if len(frame):
+            layer._next_id = max(base._next_id, int(frame["tx_id"].max()) + 1)
+        return layer
 
     def history(self, card: int) -> pd.DataFrame:
         hist, added = self.base.history(card), self._added.get(int(card))
@@ -119,18 +141,22 @@ class OverlayHistoryStore(CardHistoryStore):
             del self._added[card]
         else:
             self._added[card] = rows
+        self._n_added -= 1
 
     def add(self, tx: dict) -> int:
         card, tx_id = int(tx[CARD_COL]), self._next_id
         new = _normalize(pd.DataFrame([{**tx, "tx_id": tx_id}]))
         prev = self._added.get(card)
         self._added[card] = new if prev is None else pd.concat([prev, new], ignore_index=True)
-        self._order.append(card)
+        self._n_added += 1
         self._next_id += 1
-        if len(self._added[card]) > self.max_per_card:
+        if self.max_per_card is None and self.max_total is None:
+            return tx_id
+        self._order.append(card)
+        if self.max_per_card is not None and len(self._added[card]) > self.max_per_card:
             self._order.remove(card)                    # o kartın en eski eklenen kaydı
             self._drop_oldest(card)
-        while len(self._order) > self.max_total:
+        while self.max_total is not None and len(self._order) > self.max_total:
             self._drop_oldest(self._order.popleft())
         return tx_id
 
@@ -147,7 +173,7 @@ class OverlayHistoryStore(CardHistoryStore):
 
     @property
     def n_added(self) -> int:
-        return len(self._order)
+        return self._n_added
 
     @property
     def n_cards(self) -> int:

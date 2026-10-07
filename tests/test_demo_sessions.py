@@ -1,10 +1,17 @@
 """Demo modu: oturum yalıtımı, paylaşılan taban, bellek sınırları ve oturum zaman aşımı."""
 
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+
 import numpy as np
+import pandas as pd
 import pytest
 from conftest import TIME
 
-from card_fraud_detection.serving.history import OverlayHistoryStore
+from card_fraud_detection.features.build import FEATURES
+from card_fraud_detection.models.explain import explainer, shap_values
+from card_fraud_detection.serving.history import CardHistoryStore, OverlayHistoryStore
 from card_fraud_detection.ui.client import ApiError
 from card_fraud_detection.ui.demo_backend import (
     PRESETS,
@@ -149,19 +156,105 @@ def test_backend_rejects_unknown_cards_and_free_reset(setup):
         a.reset(until="2020-01-10")
 
 
-def test_presets_are_built_once_and_shared(setup):
-    service, _, inputs, _, history = setup
-    bases = SharedBases(service, {"baş": None, "orta": str(history[TIME].iloc[len(history) // 2])})
+def test_presets_are_layers_built_once_and_shared(setup):
+    service, _, inputs, _, _ = setup
+    mid = str(inputs[40][TIME])
+    bases = SharedBases(service, {"baş": None, "orta": mid})
     assert bases("baş") is service.store
-    assert bases("orta") is bases("orta")
-    assert bases("orta").n_transactions < service.store.n_transactions
+    layer = bases("orta")
+    assert layer is bases("orta") and bases.builds == 1
+    assert layer.base is service.store                                # tam kopya değil, katman
+    assert layer.n_transactions == service.store.n_transactions + 40
     reg = SessionRegistry(bases)
     a, b = backend(service, reg, "a"), backend(service, reg, "b")
     a.start("orta")
-    assert a.state.store.base is bases("orta") and b.state.store.base is service.store
+    assert a.state.store.base is layer and b.state.store.base is service.store
+
+
+def test_preset_layer_equals_history_rebuilt_from_scratch(setup):
+    """Başlangıç katmanı + oturum = o ana kadar baştan kurulan geçmiş (özellikler birebir)."""
+    service, _, inputs, _, _ = setup
+    until = str(inputs[40][TIME])
+    layer = SharedBases(service, {"x": until})("x")
+    rebuilt = CardHistoryStore.from_transactions(service.transactions, until)
+    for t in inputs[40:70]:
+        a = service.features_for(t, OverlayHistoryStore(layer))[FEATURES]
+        b = service.features_for(t, CardHistoryStore(rebuilt.history(t["cc_num"])))[FEATURES]
+        pd.testing.assert_frame_equal(a.reset_index(drop=True), b.reset_index(drop=True))
+
+
+def test_concurrent_preset_selection_builds_once(setup, monkeypatch):
+    service, _, inputs, _, _ = setup
+    bases = SharedBases(service, {"x": str(inputs[40][TIME])})
+    real, barrier = bases._build, threading.Barrier(8)
+
+    def slow_build(until):                       # yarışı zorla: kurulum sürerken herkes gelsin
+        time.sleep(0.2)
+        return real(until)
+    monkeypatch.setattr(bases, "_build", slow_build)
+
+    def pick():
+        barrier.wait()
+        return bases("x")
+    with ThreadPoolExecutor(8) as pool:
+        got = list(pool.map(lambda _: pick(), range(8)))
+    assert bases.builds == 1 and all(g is got[0] for g in got)
+    assert got[0].n_added == 40                                      # yarım katman yok
+
+
+def test_threaded_shap_equals_shap_library(serving_setup):
+    _, _, feats, model, _ = serving_setup
+    expl = explainer(model)
+    x = feats[FEATURES].iloc[:50]
+    pd.testing.assert_frame_equal(shap_values(expl, x, num_threads=1), shap_values(expl, x),
+                                  check_exact=True)
+
+
+def test_single_thread_prediction_is_requested(setup, monkeypatch):
+    service, _, inputs, _, _ = setup
+    service.num_threads = 1
+    seen = []
+    real_predict = service.model.booster_.predict
+
+    def spy(*args, **kwargs):
+        seen.append(kwargs.get("num_threads"))
+        return real_predict(*args, **kwargs)
+    monkeypatch.setattr(service.model.booster_, "predict", spy)
+    service.decision.review_cost = 0.0                               # alarm → SHAP de çağrılır
+    service.score(inputs[0], save=False)
+    assert seen and all(n == 1 for n in seen) and len(seen) == 2     # tahmin + katkılar
+
+
+def test_concurrent_sessions_equal_single_thread_run(setup):
+    """8 oturum aynı anda (her biri kendi katmanında) skorlarken sonuçlar, tek iş parçacığında
+    sırayla skorlamayla birebir aynı olmalı: olasılık ve nedenler (LightGBM + SHAP)."""
+    service, registry, inputs, _, _ = setup
+    service.num_threads, service.decision.review_cost = 1, 0.0       # hepsi alarm: SHAP çalışır
+    registry.max_sessions = 10
+    seq = inputs[:40]
+    ref = [backend(service, registry, "ref").score(t) for t in seq]
+    ref = [(r["olasilik"], r["karar"], r["nedenler"]) for r in ref]
+    assert sum(bool(n) for _, _, n in ref) >= 20            # SHAP gerçekten çalıştı
+    sessions = [backend(service, registry, f"s{i}") for i in range(8)]
+    barrier = threading.Barrier(8)
+
+    def run(s):
+        barrier.wait()
+        return [(r["olasilik"], r["karar"], r["nedenler"]) for r in (s.score(t) for t in seq)]
+    with ThreadPoolExecutor(8) as pool:
+        results = list(pool.map(run, sessions))
+    assert all(r == ref for r in results)
+
+
+def test_sessions_do_not_wait_for_each_other(setup):
+    service, registry, inputs, _, _ = setup
+    a, b = backend(service, registry, "a"), backend(service, registry, "b")
+    assert a.state.store.lock is not b.state.store.lock
+    with a.state.store.lock:                     # a'nın skorlaması sürüyor gibi
+        with ThreadPoolExecutor(1) as pool:
+            assert pool.submit(b.score, inputs[0]).result(timeout=30)["olasilik"] >= 0
 
 
 def test_default_presets_are_valid_times():
-    import pandas as pd
     assert next(iter(PRESETS.values())) is None
     assert all(pd.Timestamp(v) for v in list(PRESETS.values())[1:])

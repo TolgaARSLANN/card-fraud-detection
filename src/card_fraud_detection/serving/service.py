@@ -64,6 +64,9 @@ class ScoringService:
         # sıfırlama tek kilit altında: aksi hâlde aynı karta eşzamanlı gelen işlemler geçmişte
         # kaybolur ve işlem numaraları tekrarlanır. Bedeli: istekler sırayla işlenir (~50 ms).
         self._lock = threading.RLock()
+        # LightGBM tahmini ve SHAP katkıları için iş parçacığı sayısı (None: kütüphane
+        # varsayılanı, tüm çekirdekler). Demo'da 1: eşzamanlı oturumlar çekirdekleri paylaşır.
+        self.num_threads: int | None = None
 
     def reset(self, until: str | pd.Timestamp | None = None) -> None:
         """Kart geçmişini başlangıç durumuna döndürür. `until` verilirse geçmiş, o ana kadarki
@@ -100,24 +103,32 @@ class ScoringService:
         """Yeni işlemin özellik satırı (1 satırlık tablo), kart geçmişiyle birlikte hesaplanır.
         `store` verilirse servisin kendi geçmişi yerine o kullanılır (demo: oturum katmanı)."""
         store = self.store if store is None else store
-        with self._lock:
+        with self._lock_for(store):
             frame, pos = store.with_new(tx)
         feats = build_features(frame, self.stats)
         return feats.iloc[[pos]]
 
+    def _lock_for(self, store: CardHistoryStore):
+        """Servisin kendi geçmişi tek kilitle korunur (yerel mod). Kendi kilidi olan bir katman
+        (demo oturumu) kendi kilidini kullanır: oturumlar birbirini beklemez; paylaşılan taban
+        salt-okunurdur."""
+        return self._lock if store is self.store else getattr(store, "lock", self._lock)
+
     def score(self, tx: dict, save: bool = True, store: CardHistoryStore | None = None) -> dict:
         store = self.store if store is None else store
         # Özellik hesabı ile geçmişe ekleme arasında başka bir işlem araya girmemeli
-        with self._lock:
+        with self._lock_for(store):
             row = self.features_for(tx, store)
             tx_id = store.add(tx) if save else None
         x = row[self.features]
-        raw = float(self.model.predict_proba(x)[:, 1][0])
+        threads = {} if self.num_threads is None else {"num_threads": self.num_threads}
+        raw = float(self.model.predict_proba(x, **threads)[:, 1][0])
         p = float(self.calibrator.transform(np.array([raw]))[0])
         alert = self.decision.alert(p, float(tx["amt"]))
         reasons = []
         if alert:
-            contrib = group_contributions(shap_values(self._explainer, x)).iloc[0]
+            contrib = group_contributions(
+                shap_values(self._explainer, x, self.num_threads)).iloc[0]
             reasons = top_reasons(contrib, row.iloc[0])
         return {"islem_no": tx_id, "olasilik": p, "beklenen_kayip": p * float(tx["amt"]),
                 "karar": "alarm" if alert else "onay", "risk_seviyesi": risk_level(p),

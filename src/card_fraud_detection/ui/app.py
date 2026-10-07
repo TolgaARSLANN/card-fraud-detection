@@ -68,6 +68,7 @@ def demo_shared():
     from card_fraud_detection.serving.service import ScoringService
     from card_fraud_detection.ui.demo_backend import SessionRegistry, SharedBases
     service = ScoringService.load()
+    service.num_threads = 1        # eşzamanlı oturumlar 2 çekirdekte birbirini boğmasın
     return service, SessionRegistry(SharedBases(service))
 
 
