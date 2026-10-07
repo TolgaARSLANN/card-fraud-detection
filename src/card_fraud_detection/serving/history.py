@@ -74,6 +74,9 @@ class CardHistoryStore:
         cards, next_id = state
         self._cards, self._next_id = dict(cards), next_id
 
+    def has_card(self, card: int) -> bool:
+        return int(card) in self._cards
+
     @property
     def n_cards(self) -> int:
         return len(self._cards)

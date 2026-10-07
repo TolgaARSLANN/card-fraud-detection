@@ -58,3 +58,25 @@ BURST_GAP = "3D"
 DAILY_BUDGET = 25
 
 RANDOM_STATE = 42
+
+# --- Demo modu (herkese açık yayın, ör. Hugging Face Spaces) ---------------------------------
+# Kapalıyken (varsayılan) servis ve panel yerel, tek kullanıcılı davranışını aynen korur.
+
+
+def demo_mode() -> bool:
+    """DEMO_MODE ortam değişkeni (1/true/yes/on). Her çağrıda okunur (testler için)."""
+    return os.environ.get("DEMO_MODE", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+DEMO_RATE_LIMIT = 60              # IP başına istek sayısı ...
+DEMO_RATE_WINDOW = 60.0           # ... bu kadar saniyelik kayan pencerede (aşımda 429)
+DEMO_RATE_MAX_CLIENTS = 10_000    # izlenen IP sayısı sınırı (sınırlayıcı bellek sızdırmasın)
+DEMO_MAX_BODY_BYTES = 10 * 1024   # istek gövdesi sınırı (aşımda 413)
+# X-Forwarded-For'da güvenilen vekil sayısı: istemci IP'si sağdan bu kadar içerideki değerdir
+# (en soldaki değeri istemci kendisi yazabilir). Spaces'ta yayında doğrulanmalı.
+DEMO_TRUSTED_PROXY_HOPS = int(os.environ.get("TRUSTED_PROXY_HOPS", "1"))
+DEMO_STREAM_LIMIT = 2_000         # oturum başına canlı akışta skorlanabilecek işlem
+DEMO_ADDED_PER_CARD = 200         # oturum katmanında kart başına eklenen kayıt sınırı
+DEMO_ADDED_TOTAL = 5_000          # oturum katmanında toplam eklenen kayıt sınırı
+DEMO_MAX_SESSIONS = 50            # aynı anda bellekte tutulan panel oturumu
+DEMO_SESSION_TTL = 30 * 60.0      # bu kadar saniye işlem yapmayan oturumun katmanı silinir

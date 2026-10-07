@@ -40,18 +40,10 @@ def compare(online: pd.DataFrame, batch: pd.DataFrame) -> pd.Series:
     return pd.Series(out)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--n", type=int, default=2000)
-    args = parser.parse_args()
-
-    service = ScoringService.load()
-    print(f"Servis: {service.store.n_cards} kart, {service.store.n_transactions:,} işlem geçmişi")
-    tx = pd.read_parquet(TRANSACTIONS_PATH, columns=["tx_id", "split", *INPUT],
-                         filters=[("split", "==", "test")]).sort_values("tx_id").head(args.n)
-    batch = pd.read_parquet(FEATURES_PATH, columns=["tx_id", *FEATURES],
-                            filters=[("split", "==", "test")]).set_index("tx_id").loc[tx["tx_id"]]
-
+def check(service: ScoringService, tx: pd.DataFrame, batch: pd.DataFrame):
+    """İşlemleri sırayla servisten geçirir (skorla ve geçmişe ekle); özellikleri `batch` ile,
+    olasılıkları aynı modelin `batch` üzerindeki olasılığıyla karşılaştırır.
+    Dönen: (özellik farkları, en büyük olasılık farkı, istek süreleri ms, tutarlı mı)."""
     rows, probs, seconds = [], [], []
     for _, r in tx.iterrows():
         t = r[INPUT].to_dict()
@@ -66,13 +58,28 @@ def main() -> None:
     raw = service.model.predict_proba(batch[FEATURES])[:, 1]
     p_batch = service.calibrator.transform(raw)
     p_diff = float(np.max(np.abs(np.array(probs) - p_batch)))
-    ms = 1000 * np.array(seconds)
+    ok = bool(diffs.max() < 1e-9) and p_diff < 1e-12
+    return diffs, p_diff, 1000 * np.array(seconds), ok
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--n", type=int, default=2000)
+    args = parser.parse_args()
+
+    service = ScoringService.load()
+    print(f"Servis: {service.store.n_cards} kart, {service.store.n_transactions:,} işlem geçmişi")
+    tx = pd.read_parquet(TRANSACTIONS_PATH, columns=["tx_id", "split", *INPUT],
+                         filters=[("split", "==", "test")]).sort_values("tx_id").head(args.n)
+    batch = pd.read_parquet(FEATURES_PATH, columns=["tx_id", *FEATURES],
+                            filters=[("split", "==", "test")]).set_index("tx_id").loc[tx["tx_id"]]
+
+    diffs, p_diff, ms, ok = check(service, tx, batch)
     print(f"{len(tx):,} işlem · özellik başına en büyük fark:")
     print(diffs.to_string())
     print(f"Olasılık farkı (en büyük): {p_diff:.2e}")
     print(f"İstek süresi (özellik + skor + açıklama): medyan {np.median(ms):.1f} ms, "
           f"%95 {np.percentile(ms, 95):.1f} ms")
-    ok = (diffs.max() < 1e-9) and p_diff < 1e-12
     print("TUTARLI" if ok else "TUTARSIZ")
     raise SystemExit(0 if ok else 1)
 
