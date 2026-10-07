@@ -9,8 +9,23 @@ dolandırıcılık olduğu için projenin odağında sınıf dengesizliği, PR-A
 seçimi ve açıklanabilirlik var.
 
 > Durum: Veri, özellikler, modelleme, tek seferlik test değerlendirmesi, açıklanabilirlik,
-> skorlama API'si ve izleme paneli tamamlandı. Sırada Docker ile paketleme var. Ayrıntılı plan
-> ve her adımın kararları: [docs/YOL_HARITASI.md](docs/YOL_HARITASI.md)
+> skorlama API'si, izleme paneli ve Hugging Face Spaces paketi tamamlandı; yayın bekliyor.
+> Ayrıntılı plan ve her adımın kararları: [docs/YOL_HARITASI.md](docs/YOL_HARITASI.md)
+
+## Canlı demo
+**Bağlantı:** _yakında (Hugging Face Spaces)_ <!-- yayından sonra Space adresiyle değiştirin -->
+
+- Demo yalnızca izleme panelini çalıştırır (`DEMO_MODE=1`, skorlama panelin içinde). FastAPI
+  servisi Space'te açılmaz. Panel API'ye ihtiyaç duymaz, ayrıca herkese açık bir API kötüye
+  kullanıma (yoğun istek, kart numarası denemeleri) ek bir yüzey açardı. API'nin demo
+  sertleştirmesi kodda durur, ama bu sürümde internete açılmaz.
+- Veriler sentetiktir ve kart numaraları takma numaralarla değiştirilmiştir. Her ziyaretçinin
+  akışı yalnızca kendi oturumunu etkiler.
+- **Ücretsiz Space bir süre ziyaret edilmezse uykuya geçer.** Uyuyan Space'i açan ilk
+  ziyaretçi, konteynerin başlamasını ve model ile geçmişin yüklenmesini bekler; bu birkaç
+  dakika sürebilir. Sonraki açılışlar hızlıdır.
+- Ölçümler (açılış, bellek, eşzamanlı oturumlar):
+  [reports/space_olcum.md](reports/space_olcum.md)
 
 ## Veri
 [Credit Card Transactions Fraud Detection](https://www.kaggle.com/datasets/kartik2112/fraud-detection)
@@ -140,7 +155,7 @@ DEMO_MODE=1 streamlit run src/card_fraud_detection/ui/app.py
 - **Panel:** API'ye gitmeden aynı süreçte skorlar. Model ve yüklenmiş kart geçmişi tüm
   ziyaretçiler için tek kopyadır. Her oturum yalnızca kendi eklediği işlemleri ayrı bir
   katmanda tutar, bu yüzden ziyaretçiler birbirini etkilemez. Oturum başına 2.000 akış
-  işlemi sınırı vardır. Bellekte en fazla 50 oturum tutulur; 30 dakika işlem yapmayan
+  işlemi sınırı vardır. Bellekte en fazla 50 oturum tutulur; 15 dakika işlem yapmayan
   oturum silinir. Kart numarası serbestçe girilemez; maskeli etiketli sentetik kartlardan
   seçilir. Başlangıç anı üç sabit seçenekle sınırlıdır. Üstte "veriler sentetiktir,
   gerçek kart ya da kişisel bilgi girmeyin" notu sürekli görünür ve hata ayrıntıları
@@ -162,6 +177,28 @@ DEMO_MODE=1 streamlit run src/card_fraud_detection/ui/app.py
   Kaggle API'sinden 2026-10-07'de doğrulandı). Veriyi üreten Sparkov simülatörü
   ([namebrandon/Sparkov_Data_Generation](https://github.com/namebrandon/Sparkov_Data_Generation))
   MIT lisanslıdır. Yeniden dağıtım serbesttir; kaynağı belirtmek yine de iyi bir uygulamadır.
+
+## Hugging Face Spaces'e yükleme
+Space ayrı bir repodur. Bu GitHub reposuna veri ya da model eklenmez; Space'e gidecek klasör
+`build/space/` altında üretilir (`build/` git dışındadır).
+```bash
+make space-data     # demo veri kesiti + model dosyaları + tutarlılık kontrolü (~3 dk)
+make space          # paketi build/space/ altında toplar ve denetler (sütunlar, boyut)
+make space-smoke    # Docker: 2 CPU / 3 GB ile açar, üç sekmeyi dener
+```
+Yüklemeyi hesap sahibi yapar. Hugging Face hesabını ve yazma yetkili token'ı kendiniz
+oluşturup girin; token'ı hiçbir dosyaya ya da komut satırına yazmayın.
+1. huggingface.co'da **New Space** açın: SDK olarak **Docker** (boş şablon), donanım olarak
+   ücretsiz **CPU basic** seçin.
+2. Giriş yapıp paketi yükleyin (`hf auth login` token'ı gizli olarak sorar):
+```bash
+pip install -U huggingface_hub
+hf auth login
+hf upload <kullanici>/<space-adi> build/space . --repo-type space
+```
+`hf upload` büyük dosyaları (parquet, joblib) kendiliğinden LFS'e aktarır; `git-lfs` gerekmez.
+Space kurulduktan sonra README'deki "Canlı demo" bağlantısını güncelleyin. Bağımlılıklar
+`space/requirements.txt` içinde tüm zinciriyle sabittir; güncellemek için `make space-lock`.
 
 ## Sınırlamalar
 - **Sentetik veri.** Bulgular Sparkov simülatörünün davranışını yansıtır. Örneğin

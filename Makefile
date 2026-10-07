@@ -1,5 +1,5 @@
 .PHONY: install data quality process eda features baselines train tune threshold errors final \
-        explain api consistency panel-data ui space-lock space-data space space-smoke test lint
+        explain api consistency panel-data ui space-lock space-data space space-smoke space-measure test lint
 
 install:
 	pip install -e ".[dev,ml,api,ui]"
@@ -65,6 +65,10 @@ space:
 # Paketi Docker ile Space'e yakın kısıtlarla (2 CPU, 3 GB) çalıştırıp üç sekmeyi dener
 space-smoke:
 	bash scripts/space_smoke.sh
+
+# Paketi aynı kısıtlarla ölçer: açılış, bellek, eşzamanlı oturumlar (rapor: reports/space_olcum.md)
+space-measure:
+	bash scripts/space_measure.sh
 
 # Tek komut: API çalışmıyorsa başlatır, paneli açar; Ctrl+C ikisini de kapatır
 ui:

@@ -715,8 +715,26 @@ mevcut testler aynen). Model, kalibrasyon, karar kuralı ve test değerlendirmes
   - "Eşik ve maliyet" sekmesi için `panel_scores.parquet` (tx_id, zaman, tutar, etiket,
     olasılık) eklenmeli.
 
-## FAZ 5: Yayına Alma ve Belgeler · ~3-4 gün
+## FAZ 5: Yayına Alma ve Belgeler (Hugging Face Spaces)
 
-- [ ] **5.1 Docker** (`Dockerfile`, `docker-compose.yml`: api + ui)
-- [ ] **5.2 İsteğe bağlı yayın** (Streamlit Community Cloud / Hugging Face Spaces, örneklem veriyle)
-- [ ] **5.3 README** (sonuç tablosu, grafikler, sınırlamalar: sentetik veri, kavram kayması, etiket gecikmesi)
+Karar: Space'te yalnızca panel çalışır (`DEMO_MODE=1`, skorlama panelin içinde). FastAPI
+servisi açılmaz. Space ayrı bir repodur; GitHub reposuna veri ya da model eklenmez.
+
+- [x] **5.1 Paylaşılan başlangıç katmanları** (tam kopya yerine katman, her biri bir kez ve
+  kilitle kurulur), demo'da `num_threads=1`, oturum zaman aşımı 15 dakika.
+- [x] **5.2 Demo veri kesiti** (`make space-data`)
+  - Kesitte yalnızca demo sütunları bulunur. Kart numaraları 7 haneli ve Luhn'dan geçmeyen
+    takma numaralarla değiştirildi.
+  - Kartın tüm geçmişi tutuldu, çünkü 7 gün yetmez: kartın geçmiş sayısı, ortalaması ve
+    "ilk işlem" özellikleri tüm geçmişe bakar.
+  - Gerçek veride 3 başlangıç × 500 işlemde fark 0.
+- [x] **5.3 Space paketi** (`make space`, `make space-smoke`)
+  - Dockerfile: root olmayan kullanıcı, sabitlenmiş bağımlılıklar, LFS ayarları.
+  - Duman testi 2 CPU / 3 GB ile geçti. Paket 40 MB.
+  - MIT lisansı eklendi. Veri kaynağı panelin alt bilgisinde ve README'de belirtildi.
+- [ ] **5.4 Ölçüm** ([`reports/space_olcum.md`](../reports/space_olcum.md), ara rapor)
+  - Bulgu: GIL nedeniyle oturum başına kilit, tek ortak kilitten 2,2 kat yavaş.
+  - **Karar bekliyor:** demo hesaplamasını tek ortak kilide almak. Oturum verileri ayrı kalır.
+  - Kalan ölçümler: 10 × 2.000 işlemin tamamı, sunucu belleği, kısıtsız çalıştırma.
+- [ ] **5.5 Yayın:** hesap sahibi Space'i oluşturup yükler (README "Hugging Face Spaces'e
+  yükleme"); ardından "Canlı demo" bağlantısı güncellenir.
