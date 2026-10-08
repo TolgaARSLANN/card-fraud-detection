@@ -69,10 +69,14 @@ def demo_shared():
     from card_fraud_detection.ui.demo_backend import SessionRegistry, SharedBases
     service = ScoringService.load()
     service.num_threads = 1        # eşzamanlı oturumlar 2 çekirdekte birbirini boğmasın
-    return service, SessionRegistry(SharedBases(service))
+    bases = SharedBases(service)
+    bases.build_all(release=True)  # başlangıçlar hazır; ham işlem kopyası (~51 MB) bırakılır
+    return service, SessionRegistry(bases)
 
 
-@st.cache_data(show_spinner="Test dönemi işlemleri yükleniyor…")
+# Salt-okunur tablolar cache_resource ile tek kopya paylaşılır (cache_data her çağrıda kopya
+# döndürür: her yenilemede ~24 MB). Bu tablolar panelde değiştirilmez, yalnızca okunur.
+@st.cache_resource(show_spinner="Test dönemi işlemleri yükleniyor…")
 def load_stream() -> pd.DataFrame:
     df = pd.read_parquet(TRANSACTIONS_PATH, columns=["tx_id", "split", TARGET, *INPUT],
                          filters=[("split", "==", "test")])
@@ -81,7 +85,7 @@ def load_stream() -> pd.DataFrame:
     return df.sort_values("tx_id").reset_index(drop=True)
 
 
-@st.cache_data(show_spinner="Skorlar yükleniyor…")
+@st.cache_resource(show_spinner="Skorlar yükleniyor…")
 def load_panel_scores() -> pd.DataFrame | None:
     return pd.read_parquet(PANEL_SCORES) if PANEL_SCORES.exists() else None
 

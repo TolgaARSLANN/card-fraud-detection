@@ -97,6 +97,14 @@ class SharedBases:
                 self.builds += 1
             return self._bases[key]
 
+    def build_all(self, release: bool = True) -> None:
+        """Tüm başlangıçları şimdi kurar. `release`: ardından servisin ham işlem kopyasını
+        (`service.transactions`, ~51 MB) bırakır; demo'da başka bir şey onu kullanmaz."""
+        for key in self.presets:
+            self(key)
+        if release:
+            self.service.transactions = None
+
     def _build(self, until: str) -> OverlayHistoryStore:
         base, tx = self.service.store, self.service.transactions
         loaded = np.concatenate([base.history(c)["tx_id"].to_numpy() for c in base.cards()])

@@ -171,6 +171,31 @@ def test_presets_are_layers_built_once_and_shared(setup):
     assert a.state.store.base is layer and b.state.store.base is service.store
 
 
+def test_build_all_prebuilds_presets_and_releases_raw_copy(setup):
+    service, _, inputs, _, _ = setup
+    bases = SharedBases(service, {"baş": None, "x": str(inputs[40][TIME])})
+    bases.build_all(release=True)
+    assert bases.builds == 1 and service.transactions is None
+    assert bases("x").n_added == 40 and bases.builds == 1           # kurulu olan kullanılır
+
+
+def test_loaded_history_is_compact_but_features_unchanged(setup):
+    """Yüklenmiş geçmişte kategori/satıcı kategorik tipte (bellek); özellikler aynı kalır."""
+    service, _, inputs, _, history = setup
+    frame = next(iter(service.store._cards.values()))
+    assert str(frame["category"].dtype) == "category" and str(frame["merchant"].dtype) == "category"
+    plain = {c: g.reset_index(drop=True) for c, g in history.assign(
+        category=history["category"].astype(str), merchant=history["merchant"].astype(str))
+        [COLS].groupby("cc_num")}
+    for t in inputs[:30]:
+        a = service.features_for(t)[FEATURES].reset_index(drop=True)
+        store = CardHistoryStore()
+        store._cards = {int(t["cc_num"]): plain.get(t["cc_num"], pd.DataFrame(columns=COLS))}
+        store._next_id = service.store._next_id
+        b = service.features_for(t, store)[FEATURES].reset_index(drop=True)
+        pd.testing.assert_frame_equal(a, b)
+
+
 def test_preset_layer_equals_history_rebuilt_from_scratch(setup):
     """Başlangıç katmanı + oturum = o ana kadar baştan kurulan geçmiş (özellikler birebir)."""
     service, _, inputs, _, _ = setup

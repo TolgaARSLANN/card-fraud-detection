@@ -753,8 +753,12 @@ servisi açılmaz. Space ayrı bir repodur; GitHub reposuna veri ya da model ekl
     (ayarsız artmaya devam ediyordu).
   - **Risk:** Cloud'un bellek sınırı belirsiz (kaynaklarda 690 MB-2,7 GB, sık geçen ~1 GB);
     ~820 MB sıkışık.
-- [ ] **5.6 Bellek iyileştirmesi (önerilen, yayından önce):** paylaşılan kart geçmişindeki
-  metin sütunlarını (kategori, satıcı) daha sıkı bir tipe çevirmek. Özellik hesabına
-  dokunduğu için tutarlılık kontrolüyle (`make space-data`) doğrulanmalı.
+- [x] **5.6 Bellek iyileştirmesi:**
+  - Yüklenmiş geçmişte kategori ve satıcı kategorik tipte tutuluyor.
+  - Demo'da ham işlem kopyası, başlangıç katmanları kurulduktan sonra bırakılıyor.
+  - Panelin salt-okunur tabloları `cache_resource` ile paylaşılıyor; önceden `cache_data` her
+    yenilemede kopyalıyordu.
+  - Sonuçlar değişmedi: `make consistency` ve `make space-data` fark 0.
+  - Cloud yolunda Streamlit süreci 815 MB → **591 MB**; oturumlarla artış yok.
 - [ ] **5.7 Yayın:** ayrı herkese açık yayın reposu, Streamlit Cloud'da uygulama (hesap
   sahibi), canlı doğrulama, README "Canlı demo" bağlantısı.

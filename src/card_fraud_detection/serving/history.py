@@ -28,6 +28,14 @@ def _normalize(frame: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _compact(frame: pd.DataFrame) -> pd.DataFrame:
+    """Toplu yüklenen geçmişte kategori ve satıcı kategorik tipte tutulur: aynı tablodan bölünen
+    tüm kart tabloları tek bir kategori listesini paylaşır, satır başına 1-2 bayt kalır (metin
+    olarak ~%58'i bu iki sütundu). Yeni gelen işlemler metin kalır; birleştirmede sonuç metne
+    döner, özellik kodu iki durumda da aynı değerleri görür (testler ve tutarlılık kontrolleri)."""
+    return frame.astype({"category": "category", "merchant": "category"})
+
+
 class CardHistoryStore:
     """Kart numarası → o kartın işlemleri (zaman ve tx_id sırasıyla)."""
 
@@ -35,7 +43,7 @@ class CardHistoryStore:
         self._cards: dict[int, pd.DataFrame] = {}
         self._next_id = 0
         if frame is not None and len(frame):
-            frame = _normalize(frame).sort_values([TIME_COL, "tx_id"], kind="stable")
+            frame = _compact(_normalize(frame).sort_values([TIME_COL, "tx_id"], kind="stable"))
             self._cards = {int(card): g.reset_index(drop=True)
                            for card, g in frame.groupby(CARD_COL, sort=False)}
             self._next_id = int(frame["tx_id"].max()) + 1
@@ -122,7 +130,7 @@ class OverlayHistoryStore(CardHistoryStore):
         katman. Tabandaki işlemlerin hepsi bu işlemlerden önce olmalıdır; sonuç, aynı işlemlerle
         baştan kurulan geçmişle (`from_transactions`) aynı sırayı verir."""
         layer = cls(base)
-        frame = _normalize(transactions).sort_values([TIME_COL, "tx_id"], kind="stable")
+        frame = _compact(_normalize(transactions).sort_values([TIME_COL, "tx_id"], kind="stable"))
         layer._added = {int(card): g.reset_index(drop=True)
                         for card, g in frame.groupby(CARD_COL, sort=False)}
         layer._n_added = len(frame)

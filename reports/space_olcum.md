@@ -107,3 +107,28 @@ durduruyor ama Docker'dakinden ~150 MB yüksek kalıyor; olası neden, ilk oturu
 ayar devreye girmeden açılması. Cloud'un bellek sınırı belirsiz (690 MB-2,7 GB; sık geçen
 ~1 GB). ~820 MB sıkışık olduğu için yayından önce paylaşılan geçmişin bellek kullanımını
 düşürmek öneriliyor (yol haritası 5.6).
+
+## Bellek iyileştirmesi (yol haritası 5.6)
+Ölçülen dağılım (servis yüklendikten sonra): kütüphaneler ~290 MB, paylaşılan kart geçmişi
+99 MB (kategori ve satıcı metin sütunları bunun büyük kısmı), ham işlem kopyası
+(`service.transactions`) 51 MB, panelin akış ve skor tabloları 6 + 18 MB. Panel bu iki tabloyu
+`st.cache_data` ile yüklüyordu; `cache_data` her çağrıda kopya döndürür, yani her yenilemede.
+
+Yapılanlar:
+1. Yüklenmiş geçmişte kategori ve satıcı kategorik tipte tutuluyor (kart tabloları 99 → 63 MB).
+   Yeni işlemler metin kalıyor; özellik kodu iki durumda da aynı değerleri görüyor.
+2. Demo'da başlangıç katmanları yüklemede kuruluyor, ham işlem kopyası bırakılıyor (~51 MB).
+3. Akış ve skor tabloları `cache_resource` ile tek kopya paylaşılıyor (panel yalnızca okur).
+
+Sonuçlar değişmedi: gerçek veriyle `make consistency` TUTARLI (2.000 işlem, fark 0), `make
+space-data` KESİT TUTARLI (3 × 500 işlem, fark 0). Skorlama hızı aynı (medyan ~51 ms).
+
+| Streamlit süreci (Cloud yolu, `make cloud-check`, 1 GB) | Önce | Sonra |
+|---|---|---|
+| İlk ziyaretçiden sonra | 648 MB | 576 MB |
+| 3 oturum × 50 işlem | 823 MB | 577 MB |
+| Bir oturumda +150 işlem | 815 MB | 591 MB |
+
+Oturumlarla gelen artış neredeyse tamamen kayboldu (asıl neden büyük olasılıkla her
+yenilemedeki tablo kopyalarıydı). ~590 MB, Cloud için kaynaklarda geçen en düşük sınırın
+(690 MB) da altında.
