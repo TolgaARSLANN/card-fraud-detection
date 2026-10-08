@@ -9,8 +9,8 @@ dolandırıcılık olduğu için projenin odağında sınıf dengesizliği, PR-A
 seçimi ve açıklanabilirlik var.
 
 > Durum: Veri, özellikler, modelleme, tek seferlik test değerlendirmesi, açıklanabilirlik,
-> skorlama API'si, izleme paneli ve yayın paketleri tamamlandı; Streamlit Community Cloud'da
-> yayın bekliyor. Ayrıntılı plan ve her adımın kararları:
+> skorlama API'si ve izleme paneli tamamlandı; panel Streamlit Community Cloud'da yayında.
+> Ayrıntılı plan ve her adımın kararları:
 > [docs/YOL_HARITASI.md](docs/YOL_HARITASI.md)
 
 ## Canlı demo
