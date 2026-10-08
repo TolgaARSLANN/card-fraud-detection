@@ -14,7 +14,9 @@ seçimi ve açıklanabilirlik var.
 > [docs/YOL_HARITASI.md](docs/YOL_HARITASI.md)
 
 ## Canlı demo
-**Bağlantı:** _yakında (Streamlit Community Cloud)_ <!-- yayından sonra adresle değiştirin -->
+**▶ [Gece Nöbeti · canlı demo](https://card-fraud-detection-demo-cur2lbyszzjbdhxkoasns3.streamlit.app)**
+(Streamlit Community Cloud · yayın reposu:
+[card-fraud-detection-demo](https://github.com/TolgaARSLANN/card-fraud-detection-demo))
 
 - Demo yalnızca izleme panelini çalıştırır (`DEMO_MODE=1`, skorlama panelin içinde). FastAPI
   servisi yayında açılmaz. Panel API'ye ihtiyaç duymaz, ayrıca herkese açık bir API kötüye

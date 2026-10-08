@@ -760,5 +760,14 @@ servisi açılmaz. Space ayrı bir repodur; GitHub reposuna veri ya da model ekl
     yenilemede kopyalıyordu.
   - Sonuçlar değişmedi: `make consistency` ve `make space-data` fark 0.
   - Cloud yolunda Streamlit süreci 815 MB → **591 MB**; oturumlarla artış yok.
-- [ ] **5.7 Yayın:** ayrı herkese açık yayın reposu, Streamlit Cloud'da uygulama (hesap
-  sahibi), canlı doğrulama, README "Canlı demo" bağlantısı.
+- [x] **5.7 Yayın:** Uygulama Streamlit Community Cloud'da yayında:
+  https://card-fraud-detection-demo-cur2lbyszzjbdhxkoasns3.streamlit.app.
+  - Yayın reposu: https://github.com/TolgaARSLANN/card-fraud-detection-demo (`make cloud`
+    çıktısı; ana repoda veri yok).
+  - Canlı doğrulama:
+    - Canlı akış: 50 işlem 3,0 sn, hata yok.
+    - İşlem incele: maskeli sentetik kart listesi; alarmda Türkçe ilk 3 neden geldi.
+    - Eşik ve maliyet: 2.522 alarm, $45.525 (test raporuyla aynı).
+    - Uyarı bandı, alt bilgi ve `lang="tr"` yerinde.
+  - Güncelleme: `make cloud` sonrası `build/cloud` içinde commit ve push; Cloud yeniden
+    kurar.
