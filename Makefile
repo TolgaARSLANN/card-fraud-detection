@@ -1,5 +1,5 @@
 .PHONY: install data quality process eda features baselines train tune threshold errors final \
-        explain api consistency panel-data ui space-lock space-data space space-smoke space-measure test lint
+        explain api consistency panel-data ui space-lock space-data space space-smoke space-measure cloud cloud-check test lint
 
 install:
 	pip install -e ".[dev,ml,api,ui]"
@@ -61,6 +61,14 @@ space-lock:
 # Space paketini build/space/ altında toplar ve denetler (önce: make space-data)
 space:
 	python -m card_fraud_detection.space.package
+
+# Streamlit Community Cloud yayın klasörü: build/cloud/ (önce: make space-data)
+cloud:
+	python -m card_fraud_detection.space.package --target cloud
+
+# Cloud klasörünü temiz python:3.12-slim'de, ortam değişkeni olmadan, 1 GB bellekle dener
+cloud-check:
+	bash scripts/cloud_check.sh
 
 # Paketi Docker ile Space'e yakın kısıtlarla (2 CPU, 3 GB) çalıştırıp üç sekmeyi dener
 space-smoke:

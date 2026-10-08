@@ -88,3 +88,22 @@ yapıldı. 16 GB için kestirim:
   vCPU'su bu makinenin çekirdeğiyle benzer hızdadır; değilse süreler orantılı değişir.
 - **Uyku:** Ücretsiz Space bir süre ziyaret edilmezse uyur; uyanan ilk ziyaretçi konteynerin
   başlamasını (~5 sn burada; HF'de imaj çekme ile daha uzun) ve ~9 sn yüklemeyi bekler.
+
+## Streamlit Community Cloud benzeri kontrol (`make cloud-check`)
+Hugging Face Docker Space'leri ücretli plana bağlandığı için yayın yolu Streamlit Community
+Cloud oldu. Cloud'da ortam değişkeni süreç başlamadan verilemez; demo modu ve bellek havuzu
+sınırı kökteki `streamlit_app.py` içinde ayarlanır (`mallopt`). Kontrol: temiz
+python:3.12-slim, `packages.txt` + `requirements.txt` kurulumu, ortam değişkeni yok,
+`--cpus=2 --memory=1g`.
+
+| Streamlit süreci (RSS) | Koddan ayar (Cloud) | Docker + `MALLOC_ARENA_MAX=2` | Ayar yok |
+|---|---|---|---|
+| İlk ziyaretçiden sonra | 648 MB | 542 MB | 671 MB |
+| 3 oturum × 50 işlem | 823 MB | 672 MB | 876 MB |
+| Bir oturumda +150 işlem | 815 MB, sabit | 668 MB, sabit | 936 MB, artıyor |
+
+Duman testi (üç sekme, giriş dosyası üzerinden) 1 GB sınırda geçti. Koddan ayar artışı
+durduruyor ama Docker'dakinden ~150 MB yüksek kalıyor; olası neden, ilk oturumun bellek havuzunun
+ayar devreye girmeden açılması. Cloud'un bellek sınırı belirsiz (690 MB-2,7 GB; sık geçen
+~1 GB). ~820 MB sıkışık olduğu için yayından önce paylaşılan geçmişin bellek kullanımını
+düşürmek öneriliyor (yol haritası 5.6).

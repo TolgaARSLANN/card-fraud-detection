@@ -742,5 +742,19 @@ servisi açılmaz. Space ayrı bir repodur; GitHub reposuna veri ya da model ekl
   - **Bulgu ve düzeltme:** Sunucu belleği oturum ve işlemle birlikte artıyordu (3 oturumda
     +205 MB, sonra da artmaya devam). Neden glibc'nin iş parçacığı başına açtığı bellek
     havuzlarıydı. `MALLOC_ARENA_MAX=2` ile bellek ~670 MB'ta sabit kaldı.
-- [ ] **5.5 Yayın:** hesap sahibi Space'i oluşturup yükler (README "Hugging Face Spaces'e
-  yükleme"); ardından "Canlı demo" bağlantısı güncellenir.
+- [x] **5.5 Yayın yolu değişti:** Hugging Face, Docker ve Gradio Space'leri için artık ücretli
+  plan (PRO) istiyor; ücretsiz yalnızca statik Space kaldı. Karar: ücretsiz **Streamlit
+  Community Cloud**. Docker paketi PRO ya da `docker run` için hazır duruyor.
+  - `make cloud` → `build/cloud/`: kökteki `streamlit_app.py` demo modunu ve bellek havuzu
+    sınırını (`mallopt`, `MALLOC_ARENA_MAX`'in koddaki karşılığı) kendisi ayarlar.
+    `packages.txt`: `libgomp1`.
+  - `make cloud-check` (temiz python:3.12-slim, ortam değişkeni yok, 1 GB): duman testi
+    geçti. Streamlit süreci ilk ziyaretçiden sonra 648 MB, 3 oturumla 823 MB, sonra sabit
+    (ayarsız artmaya devam ediyordu).
+  - **Risk:** Cloud'un bellek sınırı belirsiz (kaynaklarda 690 MB-2,7 GB, sık geçen ~1 GB);
+    ~820 MB sıkışık.
+- [ ] **5.6 Bellek iyileştirmesi (önerilen, yayından önce):** paylaşılan kart geçmişindeki
+  metin sütunlarını (kategori, satıcı) daha sıkı bir tipe çevirmek. Özellik hesabına
+  dokunduğu için tutarlılık kontrolüyle (`make space-data`) doğrulanmalı.
+- [ ] **5.7 Yayın:** ayrı herkese açık yayın reposu, Streamlit Cloud'da uygulama (hesap
+  sahibi), canlı doğrulama, README "Canlı demo" bağlantısı.

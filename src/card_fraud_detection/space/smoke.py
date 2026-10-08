@@ -21,7 +21,11 @@ APP = Path(__file__).resolve().parents[1] / "ui" / "app.py"
 def run(app: Path = APP) -> dict:
     from streamlit.testing.v1 import AppTest
 
-    if os.environ.get("DEMO_MODE") != "1":
+    # AppTest göreli yolu kendi dosyasına göre çözer: mutlak yol verilir.
+    # Panel doğrudan çalıştırılıyorsa demo modu ortamdan gelmeli; Cloud giriş dosyası
+    # (streamlit_app.py) ise demo modunu kendisi açar
+    app = Path(app).resolve()
+    if app == APP and os.environ.get("DEMO_MODE") != "1":
         raise SystemExit("DEMO_MODE=1 bekleniyordu")
     out, t0 = {"adimlar": {}}, time.perf_counter()
 
@@ -63,7 +67,11 @@ def run(app: Path = APP) -> dict:
 
 
 def main() -> None:
-    result = run()
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--app", type=Path, default=APP,
+                        help="çalıştırılacak betik (Cloud için: streamlit_app.py)")
+    result = run(parser.parse_args().app)
     print(json.dumps(result, ensure_ascii=False))
     raise SystemExit(0 if result["ok"] else 1)
 

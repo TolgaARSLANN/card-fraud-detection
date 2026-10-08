@@ -9,20 +9,21 @@ dolandırıcılık olduğu için projenin odağında sınıf dengesizliği, PR-A
 seçimi ve açıklanabilirlik var.
 
 > Durum: Veri, özellikler, modelleme, tek seferlik test değerlendirmesi, açıklanabilirlik,
-> skorlama API'si, izleme paneli ve Hugging Face Spaces paketi tamamlandı; yayın bekliyor.
-> Ayrıntılı plan ve her adımın kararları: [docs/YOL_HARITASI.md](docs/YOL_HARITASI.md)
+> skorlama API'si, izleme paneli ve yayın paketleri tamamlandı; Streamlit Community Cloud'da
+> yayın bekliyor. Ayrıntılı plan ve her adımın kararları:
+> [docs/YOL_HARITASI.md](docs/YOL_HARITASI.md)
 
 ## Canlı demo
-**Bağlantı:** _yakında (Hugging Face Spaces)_ <!-- yayından sonra Space adresiyle değiştirin -->
+**Bağlantı:** _yakında (Streamlit Community Cloud)_ <!-- yayından sonra adresle değiştirin -->
 
 - Demo yalnızca izleme panelini çalıştırır (`DEMO_MODE=1`, skorlama panelin içinde). FastAPI
-  servisi Space'te açılmaz. Panel API'ye ihtiyaç duymaz, ayrıca herkese açık bir API kötüye
+  servisi yayında açılmaz. Panel API'ye ihtiyaç duymaz, ayrıca herkese açık bir API kötüye
   kullanıma (yoğun istek, kart numarası denemeleri) ek bir yüzey açardı. API'nin demo
   sertleştirmesi kodda durur, ama bu sürümde internete açılmaz.
 - Veriler sentetiktir ve kart numaraları takma numaralarla değiştirilmiştir. Her ziyaretçinin
   akışı yalnızca kendi oturumunu etkiler.
-- **Ücretsiz Space bir süre ziyaret edilmezse uykuya geçer.** Uyuyan Space'i açan ilk
-  ziyaretçi, konteynerin başlamasını ve model ile geçmişin yüklenmesini bekler; bu birkaç
+- **Ücretsiz uygulama bir süre ziyaret edilmezse uykuya geçer.** Uyuyan uygulamayı açan ilk
+  ziyaretçi, uygulamanın uyanmasını ve model ile geçmişin yüklenmesini bekler; bu birkaç
   dakika sürebilir. Sonraki açılışlar hızlıdır.
 - Ölçümler (açılış, bellek, eşzamanlı oturumlar):
   [reports/space_olcum.md](reports/space_olcum.md)
@@ -178,27 +179,30 @@ DEMO_MODE=1 streamlit run src/card_fraud_detection/ui/app.py
   ([namebrandon/Sparkov_Data_Generation](https://github.com/namebrandon/Sparkov_Data_Generation))
   MIT lisanslıdır. Yeniden dağıtım serbesttir; kaynağı belirtmek yine de iyi bir uygulamadır.
 
-## Hugging Face Spaces'e yükleme
-Space ayrı bir repodur. Bu GitHub reposuna veri ya da model eklenmez; Space'e gidecek klasör
-`build/space/` altında üretilir (`build/` git dışındadır).
+## Yayın
+Bu GitHub reposuna veri ya da model eklenmez. Yayına gidecek klasörler `build/` altında
+üretilir (`build/` git dışındadır). İki paket vardır:
 ```bash
 make space-data     # demo veri kesiti + model dosyaları + tutarlılık kontrolü (~3 dk)
-make space          # paketi build/space/ altında toplar ve denetler (sütunlar, boyut)
-make space-smoke    # Docker: 2 CPU / 3 GB ile açar, üç sekmeyi dener
+make cloud          # Streamlit Community Cloud klasörü: build/cloud/ (denetimli)
+make cloud-check    # temiz python:3.12-slim'de, ortam değişkeni olmadan, 1 GB ile dener
+make space          # Docker paketi: build/space/ (Hugging Face Docker Space ya da docker run)
+make space-smoke    # Docker paketini 2 CPU / 3 GB ile açar, üç sekmeyi dener
 ```
-Yüklemeyi hesap sahibi yapar. Hugging Face hesabını ve yazma yetkili token'ı kendiniz
-oluşturup girin; token'ı hiçbir dosyaya ya da komut satırına yazmayın.
-1. huggingface.co'da **New Space** açın: SDK olarak **Docker** (boş şablon), donanım olarak
-   ücretsiz **CPU basic** seçin.
-2. Giriş yapıp paketi yükleyin (`hf auth login` token'ı gizli olarak sorar):
-```bash
-pip install -U huggingface_hub
-hf auth login
-hf upload <kullanici>/<space-adi> build/space . --repo-type space
-```
-`hf upload` büyük dosyaları (parquet, joblib) kendiliğinden LFS'e aktarır; `git-lfs` gerekmez.
-Space kurulduktan sonra README'deki "Canlı demo" bağlantısını güncelleyin. Bağımlılıklar
-`space/requirements.txt` içinde tüm zinciriyle sabittir; güncellemek için `make space-lock`.
+**Streamlit Community Cloud (ücretsiz, kullanılan yol):**
+- `build/cloud/` ayrı, herkese açık bir yayın reposuna gönderilir.
+- Kökteki `streamlit_app.py` demo modunu ve bellek havuzu sınırını kendisi ayarlar; ortam
+  değişkeni ya da secret gerekmez.
+- `packages.txt` dosyası LightGBM'in sistem kitaplığını (`libgomp1`) kurdurur.
+- Cloud'da uygulama oluşturulurken ana dosya `streamlit_app.py`, Python sürümü **3.12**
+  seçilir. GitHub ile girişi hesap sahibi yapar.
+
+**Hugging Face Spaces:** Docker Space'ler artık ücretli plan (PRO) gerektiriyor. `build/space/`
+paketi hazırdır ve PRO hesapla `hf upload <kullanici>/<space-adi> build/space . --repo-type
+space` komutuyla yüklenebilir. Token'ı yalnızca `hf auth login`'in gizli girişine yazın.
+
+Bağımlılıklar `space/requirements.txt` içinde tüm zinciriyle sabittir; güncellemek için
+`make space-lock`.
 
 ## Sınırlamalar
 - **Sentetik veri.** Bulgular Sparkov simülatörünün davranışını yansıtır. Örneğin
