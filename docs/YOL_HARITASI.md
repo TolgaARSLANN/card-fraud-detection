@@ -732,11 +732,15 @@ servisi açılmaz. Space ayrı bir repodur; GitHub reposuna veri ya da model ekl
   - Dockerfile: root olmayan kullanıcı, sabitlenmiş bağımlılıklar, LFS ayarları.
   - Duman testi 2 CPU / 3 GB ile geçti. Paket 40 MB.
   - MIT lisansı eklendi. Veri kaynağı panelin alt bilgisinde ve README'de belirtildi.
-- [ ] **5.4 Ölçüm** ([`reports/space_olcum.md`](../reports/space_olcum.md), ara rapor)
-  - Bulgu: GIL nedeniyle oturum başına kilit, tek ortak kilitten 2,2 kat yavaş.
-  - [x] **Karar uygulandı:** demo'da özellik hesabı tek ortak kilitle sırayla yapılıyor
-    (`shared_lock`, varsayılan). Oturum verileri ayrı kalıyor; iki modda da sonuçlar tek iş
-    parçacıklı sonuçla aynı (testli).
-  - Kalan ölçümler: 10 × 2.000 işlemin tamamı, sunucu belleği, kısıtsız çalıştırma.
+- [x] **5.4 Ölçüm** ([`reports/space_olcum.md`](../reports/space_olcum.md), 2 CPU / 3 GB)
+  - Bulgu: GIL nedeniyle oturum başına kilit, tek ortak kilitten 2,2 kat yavaş. **Karar
+    uygulandı:** demo'da özellik hesabı tek ortak kilitle sırayla yapılıyor (`shared_lock`,
+    varsayılan). Oturum verileri ayrı kalıyor; iki modda da sonuçlar tek iş parçacıklı
+    sonuçla aynı (testli).
+  - Tek oturum 2.000 işlem 116 sn (medyan 54 ms). 10 oturum × 2.000 işlem 22 dk, saniyede
+    15 işlem.
+  - **Bulgu ve düzeltme:** Sunucu belleği oturum ve işlemle birlikte artıyordu (3 oturumda
+    +205 MB, sonra da artmaya devam). Neden glibc'nin iş parçacığı başına açtığı bellek
+    havuzlarıydı. `MALLOC_ARENA_MAX=2` ile bellek ~670 MB'ta sabit kaldı.
 - [ ] **5.5 Yayın:** hesap sahibi Space'i oluşturup yükler (README "Hugging Face Spaces'e
   yükleme"); ardından "Canlı demo" bağlantısı güncellenir.

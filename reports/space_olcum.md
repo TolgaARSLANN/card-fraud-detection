@@ -1,8 +1,10 @@
-# Space Ölçümü (Faz 5, ara rapor)
+# Space Ölçümü (Faz 5)
 
-_Ortam: Docker Desktop (WSL 2), imaj `build/space` (python:3.12-slim), `--cpus=2 --memory=3g`.
-Ölçüm betiği konteynerin içinde panelin demo arka ucunu aynı nesnelerle ve aynı kod yoluyla
-çalıştırır (`python -m card_fraud_detection.space.measure`). Tarih: 2026-10-08._
+_Ortam: Docker Desktop (WSL 2), imaj `build/space` (python:3.12-slim). Asıl kısıt
+`--cpus=2 --memory=3g`; ücretsiz Space'e en yakın kurulabilen ayar. Arka uç ölçümü konteynerin
+içinde panelin demo arka ucunu aynı nesnelerle ve aynı kod yoluyla çalıştırır
+(`make space-measure`); sunucu belleği gerçek Streamlit sunucusunda, tarayıcı oturumlarıyla
+`docker stats` ile ölçüldü. Tarih: 2026-10-08._
 
 ## Paket
 | | |
@@ -10,17 +12,34 @@ _Ortam: Docker Desktop (WSL 2), imaj `build/space` (python:3.12-slim), `--cpus=2
 | Space klasörü (`make space`) | 40 MB (kesit 24 MB, skorlar 12 MB, model 3,5 MB) |
 | Kesit | 1.457.879 işlem, 987 kart, 8 sütun; 3 başlangıç × 500 işlemde özellik ve olasılık farkı 0 |
 | Duman testi (`make space-smoke`, 2 CPU / 3 GB) | geçti: üç sekmede istisna yok, uid 1000, HTTP 200 |
-| Panelin ilk açılışı (AppTest, konteyner içinde) | 13,5 sn (model + geçmiş yükleme dahil) |
 
-## Tek oturum (2 oturum × 50 işlemlik ön ölçümden)
+## Açılış ve sunucu belleği (2 CPU / 3 GB, gerçek Streamlit sunucusu)
+| | `MALLOC_ARENA_MAX` yok | `MALLOC_ARENA_MAX=2` (imajda) |
+|---|---|---|
+| Konteyner → sağlık ucu | 4,1-4,9 sn | aynı |
+| Boşta (ziyaretçi yok) | 78-86 MB | 76 MB |
+| İlk ziyaretçi: panel hazır | ~9 sn (model + geçmiş yükleme dahil) | aynı |
+| İlk ziyaretçiden sonra | 671 MB | 542 MB |
+| 3 oturum × 50 işlem | 876 MB | 672 MB |
+| Bir oturumda +150 işlem | 936 MB, **artmaya devam** | 668 MB, **sabit** |
+
+**Bulgu ve düzeltme:** Streamlit her oturumun betiğini ayrı bir iş parçacığında çalıştırıyor.
+glibc'nin bellek ayırıcısı her iş parçacığı için ayrı havuz (arena) açıyor ve boşalan belleği
+sisteme geri vermiyordu; bellek oturum ve işlemle birlikte artıyordu. Bu bir sızıntı değil:
+skorlama kodu aynı yükte (aşağıda, 20.000 işlem) yalnızca ~180 MB arttı. Havuz sayısı 2 ile
+sınırlanınca (`ENV MALLOC_ARENA_MAX=2`, space/Dockerfile) bellek sabit kaldı.
+
+## Skorlama (2 CPU / 3 GB, konteyner içinde, demo arka ucu)
 | | |
 |---|---|
-| Model + geçmiş yükleme | 4,4 sn, ~600 MB |
-| Başlangıç katmanları (1 Tem / 15 Ağu) | 0,4 / 0,9 sn; tam kopya yerine katman olduğu için bellek artmıyor |
-| İşlem başına skorlama | medyan 90 ms, %95 133 ms |
-| 2.000 işlemlik akış (kestirim) | ~3 dk (2.000 × 90 ms) |
+| Model + geçmiş yükleme | 4,2 sn; süreç belleği 589 MB |
+| Başlangıç katmanları (1 Tem / 15 Ağu) | 0,3 / 0,5 sn; tam kopya yerine katman, bellek artmıyor |
+| Tek oturum, 2.000 işlemlik akış | **116 sn**; işlem başına medyan 54 ms, %95 81 ms |
+| 10 eşzamanlı oturum × 2.000 işlem (20.000) | **1.328 sn (22 dk)**; saniyede 15,1 işlem |
+| ... işlem başına (medyan / %95) | 647 / 802 ms |
+| ... süreç belleği | 589 → en fazla 771 MB |
 
-## Eşzamanlı oturumlar: kilit karşılaştırması (10 oturum × 300 işlem)
+## Kilit karşılaştırması (10 oturum × 300 işlem, 2 CPU / 3 GB)
 | | oturum başına kilit | tek ortak kilit |
 |---|---|---|
 | Toplam süre | 540 sn | 247 sn |
@@ -28,35 +47,44 @@ _Ortam: Docker Desktop (WSL 2), imaj `build/space` (python:3.12-slim), `--cpus=2
 | İşlem başına süre (medyan / %95) | 1.749 / 2.211 ms | 732 / 1.285 ms |
 | En yüksek bellek | 684 MB | 699 MB |
 
-**Bulgu:** Oturum başına kilit beklenenin tersine **2,2 kat yavaş**. Özellik hesabının büyük
-kısmı Python'da çalışıyor ve Python'un küresel kilidi (GIL) iş parçacıklarının paralel
-ilerlemesine izin vermiyor. Konteyner 2 CPU'dan yalnızca ~1'ini kullandı (%95). Aynı anda
-çalışmaya zorlanan oturumlar birbirini yavaşlatıyor; sırayla işlemek hem toplam süreyi hem
-işlem başına süreyi düşürüyor. Doğruluk iki yolda da aynı; oturum verileri her iki durumda da
-ayrı katmanlarda kalıyor. Ölçüm bir kez ve bu sırayla yapıldı (önce oturum kilidi); ters
-sırayla tekrarı süre nedeniyle durduruldu.
+Oturum başına kilit 2,2 kat yavaştı: özellik hesabının büyük kısmı Python'da çalışıyor ve
+Python'un küresel kilidi (GIL) iş parçacıklarının paralel ilerlemesine izin vermiyor (konteyner
+2 CPU'dan ~1'ini kullandı). **Karar (uygulandı):** demo'da özellik hesabı ve geçmişe ekleme tek
+ortak kilitle sırayla yapılıyor (`ScoringService.shared_lock = True`, varsayılan); oturum
+verileri yine ayrı katmanlarda. Testler iki modda da eşzamanlı sonuçların tek iş parçacıklı
+sonuçla birebir aynı olduğunu doğruluyor. Karşılaştırma `measure --compare` ile tekrarlanabilir.
+(Bu karşılaştırma bir kez ve bu sırayla yapıldı; ters sırayla tekrarı süre nedeniyle durduruldu.)
 
-**Karar (uygulandı):** Demo'da özellik hesabı ve geçmişe ekleme servisin tek ortak kilidiyle
-sırayla yapılıyor (`ScoringService.shared_lock = True`, varsayılan). Oturum verileri yine ayrı
-katmanlarda kalıyor. Testler iki modda da eşzamanlı sonuçların tek iş parçacıklı sonuçla
-birebir aynı olduğunu doğruluyor. Karşılaştırma ölçümü `measure --compare` ile tekrarlanabilir.
+## Kısıtsız çalıştırma (8 CPU, bellek sınırı yok; 10 oturum × 300 işlem)
+| | 8 CPU, sınırsız | 2 CPU / 3 GB (yukarıda) |
+|---|---|---|
+| Saniyede işlem (10 eşzamanlı oturum) | 14,9 | 15,1 |
+| İşlem başına (medyan / %95) | 643 / 836 ms | 647 / 802 ms |
+| Tek oturumda işlem başına medyan | 54 ms | 54 ms |
+| Model + geçmiş yükleme | 5,4 sn | 4,2 sn |
+| Süreç belleği en fazla | 637 MB (3.000 işlem) | 771 MB (20.000 işlem) |
+
+**Bulgu:** Fazla çekirdek hızlandırmıyor; kapasite 2 ve 8 CPU'da aynı (saniyede ~15 işlem).
+Skorlama Python'un küresel kilidiyle sınırlı; ücretsiz Space'in 2 vCPU'su bu iş için yeterli.
+
+## Ziyaretçi açısından ne demek
+- Tek ziyaretçi: 50 işlemlik bir adım ~3 sn, 2.000 işlemin tamamı ~2 dk.
+- 10 ziyaretçi aynı anda akıtırsa toplam kapasite (saniyede ~15 işlem) paylaşılır: kişi başı
+  saniyede ~1,5 işlem, 50 işlemlik adım ~35 sn. Demo için kabul edilebilir; daha fazlası için
+  özellik hesabını hızlandırmak (kart özetlerini önceden hesaplamak) ya da çok süreçli çalışmak
+  gerekir.
 
 ## 16 GB kestirimi ve varsayımları
-Ücretsiz Space'in gerçek sınırları (bildiğimiz kadarıyla 2 vCPU, 16 GB) bu makinede
-kurulamıyor; bilgisayarın toplam belleği 6,9 GB, Docker'ın kullanabildiği 3,5 GB. Ölçümler
-3 GB sınırla yapıldı. 16 GB için kestirim:
-- Bellek sorun değil: paylaşılan servis ~600 MB; 10 eşzamanlı oturumla en yüksek ~700 MB.
-  **Varsayım:** bir oturum katmanı yalnızca eklediği işlemleri tutar (en fazla 2.000 satır,
-  birkaç MB) ve Streamlit'in oturum başına yükü birkaç MB'tır. Bu varsayımla 50 oturumun
-  (kayıt sınırı) tamamı bile 1-1,5 GB'ı aşmaz. Streamlit sunucusunun oturum başına gerçek
-  belleği ayrıca ölçülmedi.
-- Darboğaz işlemci: Space'te de 2 vCPU ve aynı GIL sınırı geçerli. **Varsayım:** HF'nin
+Ücretsiz Space'in sınırları (bildiğimiz kadarıyla 2 vCPU, 16 GB) bu makinede kurulamıyor:
+bilgisayarın toplam belleği 6,9 GB, Docker'ın kullanabildiği 3,5 GB. Ölçümler 3 GB sınırla
+yapıldı. 16 GB için kestirim:
+- **Bellek sorun değil.** `MALLOC_ARENA_MAX=2` ile sunucu ilk ziyaretçiden sonra ~540 MB,
+  3 etkin oturumla ~670 MB'ta sabit kaldı. **Varsayım:** daha fazla oturumda da oturum başına
+  ek bellek küçük kalır (oturum katmanı en fazla 2.000 satır, sonuç listesi birkaç MB). Bu
+  varsayımla 50 oturumluk kayıt sınırının tamamı bile 1-1,5 GB'ı aşmaz. 3'ten fazla eşzamanlı
+  tarayıcı oturumu sunucuda ölçülmedi; 10 eşzamanlı oturum yalnızca arka uç ölçümünde (771 MB)
+  denendi.
+- **Darboğaz işlemci.** Space'te de 2 vCPU ve aynı GIL sınırı geçerli. **Varsayım:** HF'nin
   vCPU'su bu makinenin çekirdeğiyle benzer hızdadır; değilse süreler orantılı değişir.
-  Ortak kilitle saniyede ~12 işlem, aynı anda akıtan 10 ziyaretçi için kişi başı ~1,2
-  işlem/sn demektir.
-
-## Ölçülmeyenler (sıradaki oturumda)
-- 10 oturum × 2.000 işlemin tamamı (kestirim: ortak kilitle ~28 dk) ve tek oturumun gerçek
-  2.000 işlemlik akışı.
-- Streamlit sunucusunun boşta ve ilk ziyaretçiden sonraki belleği (`make space-measure`).
-- Kısıtsız çalıştırma (`CPUS=8 MEM=0 make space-measure`).
+- **Uyku:** Ücretsiz Space bir süre ziyaret edilmezse uyur; uyanan ilk ziyaretçi konteynerin
+  başlamasını (~5 sn burada; HF'de imaj çekme ile daha uzun) ve ~9 sn yüklemeyi bekler.

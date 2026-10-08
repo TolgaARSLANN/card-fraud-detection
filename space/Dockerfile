@@ -18,7 +18,11 @@ ENV HOME=/home/user \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     DEMO_MODE=1 \
     CARD_FRAUD_ROOT=/home/user/app \
-    OMP_NUM_THREADS=1
+    OMP_NUM_THREADS=1 \
+    MALLOC_ARENA_MAX=2
+# MALLOC_ARENA_MAX: Streamlit her oturumu ayrı iş parçacığında çalıştırır; glibc her biri için
+# ayrı bellek havuzu açıp boşalan belleği geri vermiyordu (3 oturumda +205 MB, artmaya devam).
+# 2 havuzla bellek sabit kalıyor (reports/space_olcum.md).
 WORKDIR /home/user/app
 
 # Sabitlenmiş bağımlılıklar (space/requirements.txt, `make space-lock` ile üretilir)

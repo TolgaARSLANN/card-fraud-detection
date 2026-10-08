@@ -28,5 +28,5 @@ echo "sağlık_ucu_ms: $(( ($(date +%s%N) - t0) / 1000000 ))"
 sleep 5
 echo "boşta_bellek: $(docker stats --no-stream --format '{{.MemUsage}}' "$NAME")"
 docker exec "$NAME" python -m card_fraud_detection.space.measure \
-    --sessions "$SESSIONS" --per-session "$PER_SESSION" $EXTRA | grep SONUC
+    --sessions "$SESSIONS" --per-session "$PER_SESSION" $EXTRA | grep -E '^(\{|SONUC)'
 echo "ölçüm_sonrası_konteyner_bellek: $(docker stats --no-stream --format '{{.MemUsage}}' "$NAME")"
