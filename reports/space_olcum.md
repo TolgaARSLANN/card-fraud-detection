@@ -36,8 +36,10 @@ işlem başına süreyi düşürüyor. Doğruluk iki yolda da aynı; oturum veri
 ayrı katmanlarda kalıyor. Ölçüm bir kez ve bu sırayla yapıldı (önce oturum kilidi); ters
 sırayla tekrarı süre nedeniyle durduruldu.
 
-**Karar bekliyor:** Demo skorlamasında oturum verileri ayrı kalırken hesaplamanın tek bir
-ortak kilitle (ya da yapılandırılabilir 1 yuvalı bir sırayla) yapılması öneriliyor.
+**Karar (uygulandı):** Demo'da özellik hesabı ve geçmişe ekleme servisin tek ortak kilidiyle
+sırayla yapılıyor (`ScoringService.shared_lock = True`, varsayılan). Oturum verileri yine ayrı
+katmanlarda kalıyor. Testler iki modda da eşzamanlı sonuçların tek iş parçacıklı sonuçla
+birebir aynı olduğunu doğruluyor. Karşılaştırma ölçümü `measure --compare` ile tekrarlanabilir.
 
 ## 16 GB kestirimi ve varsayımları
 Ücretsiz Space'in gerçek sınırları (bildiğimiz kadarıyla 2 vCPU, 16 GB) bu makinede

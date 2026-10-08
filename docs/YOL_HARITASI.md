@@ -734,7 +734,9 @@ servisi açılmaz. Space ayrı bir repodur; GitHub reposuna veri ya da model ekl
   - MIT lisansı eklendi. Veri kaynağı panelin alt bilgisinde ve README'de belirtildi.
 - [ ] **5.4 Ölçüm** ([`reports/space_olcum.md`](../reports/space_olcum.md), ara rapor)
   - Bulgu: GIL nedeniyle oturum başına kilit, tek ortak kilitten 2,2 kat yavaş.
-  - **Karar bekliyor:** demo hesaplamasını tek ortak kilide almak. Oturum verileri ayrı kalır.
+  - [x] **Karar uygulandı:** demo'da özellik hesabı tek ortak kilitle sırayla yapılıyor
+    (`shared_lock`, varsayılan). Oturum verileri ayrı kalıyor; iki modda da sonuçlar tek iş
+    parçacıklı sonuçla aynı (testli).
   - Kalan ölçümler: 10 × 2.000 işlemin tamamı, sunucu belleği, kısıtsız çalıştırma.
 - [ ] **5.5 Yayın:** hesap sahibi Space'i oluşturup yükler (README "Hugging Face Spaces'e
   yükleme"); ardından "Canlı demo" bağlantısı güncellenir.

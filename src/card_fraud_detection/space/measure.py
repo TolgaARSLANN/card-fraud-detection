@@ -5,8 +5,8 @@ Kullanım (konteyner içinde; dışarıdan: make space-measure):
 
 Ölçülenler: model + geçmiş yükleme süresi ve belleği, sabit başlangıç katmanlarının kurulumu,
 tek oturumda işlem başına süre ve 2.000 işlemlik akış, N eşzamanlı oturumda toplam süre,
-işlem başına süre ve en yüksek bellek. Karşılaştırma için aynı eşzamanlı yük, tüm oturumlar
-tek ortak kilidi paylaşacak biçimde de çalıştırılır (`--shared-lock`, eski davranış).
+işlem başına süre ve en yüksek bellek. Eşzamanlı yük, demo'nun varsayılanı olan tek ortak
+kilitle ölçülür; `--compare` ile oturum başına kilitle de ölçülür (karşılaştırma).
 Streamlit'in kendi yükü (oturum başına birkaç MB) bu süreçte yoktur; sunucunun belleği
 `docker stats` ile ayrıca ölçülür.
 """
@@ -50,14 +50,11 @@ def timed_run(backend, rows) -> list[float]:
 def concurrent(service, registry, presets, stream, sessions, per_session, shared_lock):
     from card_fraud_detection.ui.demo_backend import DemoBackend
 
-    keys, lock = list(presets), threading.RLock()
-    backends = []
+    keys, backends = list(presets), []
     for i in range(sessions):
         state, _ = registry.session(f"{'k' if shared_lock else 'o'}{i}")
         backend = DemoBackend(service, registry, state, stream_limit=per_session)
         backend.start(keys[i % len(keys)])
-        if shared_lock:
-            backend.state.store.lock = lock                    # eski davranış: tek ortak kilit
         backends.append((backend, stream_rows(stream, presets[keys[i % len(keys)]], per_session)))
     barrier = threading.Barrier(sessions)
 
@@ -65,9 +62,13 @@ def concurrent(service, registry, presets, stream, sessions, per_session, shared
         backend, rows = item
         barrier.wait()
         return timed_run(backend, rows)
+    before, service.shared_lock = service.shared_lock, shared_lock
     t0 = time.perf_counter()
-    with ThreadPoolExecutor(sessions) as pool:
-        lat = np.concatenate(list(pool.map(run, backends)))
+    try:
+        with ThreadPoolExecutor(sessions) as pool:
+            lat = np.concatenate(list(pool.map(run, backends)))
+    finally:
+        service.shared_lock = before
     wall = time.perf_counter() - t0
     return {"oturum": sessions, "oturum_basina_islem": per_session,
             "toplam_sn": round(wall, 1), "islem_per_sn": round(len(lat) / wall, 1),
@@ -80,9 +81,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--sessions", type=int, default=10)
     parser.add_argument("--per-session", type=int, default=2000)
-    parser.add_argument("--skip-shared-lock", action="store_true")
-    parser.add_argument("--shared-first", action="store_true",
-                        help="sıra etkisini görmek için önce ortak kilitle ölç")
+    parser.add_argument("--compare", action="store_true",
+                        help="aynı yükü oturum başına kilitle de ölç (karşılaştırma)")
     args = parser.parse_args()
 
     from card_fraud_detection.data.clean import OUT_PATH
@@ -121,10 +121,10 @@ def main() -> None:
                          "islem_ms_p95": round(float(np.percentile(lat, 95)), 1),
                          "rss_mb_sonra": rss_mb()[0]}
     print(json.dumps(out, ensure_ascii=False), flush=True)
-    modes = [("eszamanli_oturum_kilidi", False)]
-    if not args.skip_shared_lock:
-        modes.append(("eszamanli_ortak_kilit", True))
-    for name, shared in (modes[::-1] if args.shared_first else modes):
+    modes = [("eszamanli_ortak_kilit", True)]
+    if args.compare:
+        modes.append(("eszamanli_oturum_kilidi", False))
+    for name, shared in modes:
         out[name] = concurrent(service, registry, PRESETS, stream, args.sessions,
                                args.per_session, shared)
         print(json.dumps(out, ensure_ascii=False), flush=True)

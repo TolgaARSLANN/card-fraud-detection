@@ -225,11 +225,14 @@ def test_single_thread_prediction_is_requested(setup, monkeypatch):
     assert seen and all(n == 1 for n in seen) and len(seen) == 2     # tahmin + katkılar
 
 
-def test_concurrent_sessions_equal_single_thread_run(setup):
+@pytest.mark.parametrize("shared_lock", [True, False])
+def test_concurrent_sessions_equal_single_thread_run(setup, shared_lock):
     """8 oturum aynı anda (her biri kendi katmanında) skorlarken sonuçlar, tek iş parçacığında
-    sırayla skorlamayla birebir aynı olmalı: olasılık ve nedenler (LightGBM + SHAP)."""
+    sırayla skorlamayla birebir aynı olmalı: olasılık ve nedenler (LightGBM + SHAP). Hem ortak
+    kilitle (varsayılan) hem oturum başına kilitle."""
     service, registry, inputs, _, _ = setup
     service.num_threads, service.decision.review_cost = 1, 0.0       # hepsi alarm: SHAP çalışır
+    service.shared_lock = shared_lock
     registry.max_sessions = 10
     seq = inputs[:40]
     ref = [backend(service, registry, "ref").score(t) for t in seq]
@@ -246,13 +249,22 @@ def test_concurrent_sessions_equal_single_thread_run(setup):
     assert all(r == ref for r in results)
 
 
-def test_sessions_do_not_wait_for_each_other(setup):
+def test_demo_sessions_queue_on_shared_lock_by_default(setup):
+    """Varsayılan: özellik hesabı tek ortak kilitle sırayla (ölçümde 2 CPU'da 2,2 kat hızlı).
+    Ayar kapatılınca her oturum kendi kilidini kullanır ve ötekini beklemez."""
     service, registry, inputs, _, _ = setup
     a, b = backend(service, registry, "a"), backend(service, registry, "b")
-    assert a.state.store.lock is not b.state.store.lock
-    with a.state.store.lock:                     # a'nın skorlaması sürüyor gibi
-        with ThreadPoolExecutor(1) as pool:
-            assert pool.submit(b.score, inputs[0]).result(timeout=30)["olasilik"] >= 0
+    assert service.shared_lock is True
+    with ThreadPoolExecutor(1) as pool:
+        with service._lock:                      # başka bir oturum hesap yapıyor gibi
+            waiting = pool.submit(b.score, inputs[0])
+            time.sleep(0.5)
+            assert not waiting.done()            # b sırasını bekliyor
+        assert waiting.result(timeout=30)["olasilik"] >= 0          # kilit bırakılınca biter
+
+        service.shared_lock = False
+        with a.state.store.lock:                 # a'nın hesabı sürüyor gibi
+            assert pool.submit(b.score, inputs[1]).result(timeout=30)["olasilik"] >= 0
 
 
 def test_default_presets_are_valid_times():

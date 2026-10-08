@@ -103,7 +103,8 @@ class OverlayHistoryStore(CardHistoryStore):
 
     Sınır verilmezse (None) katman sınırsızdır: demo'nun sabit başlangıçları böyle kurulur
     (`layered`). Katmanlar üst üste binebilir (oturum → başlangıç → yüklenmiş geçmiş).
-    Her katmanın kendi kilidi vardır: farklı oturumlar birbirini beklemeden skorlanır.
+    Her katmanın kendi kilidi vardır; servis bunu yalnızca `shared_lock` kapalıyken kullanır
+    (varsayılan: tek ortak kilit, ölçümde daha hızlı; bkz. ScoringService.shared_lock).
     """
 
     def __init__(self, base: CardHistoryStore, max_per_card: int | None = None,

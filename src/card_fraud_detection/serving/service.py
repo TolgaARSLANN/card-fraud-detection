@@ -67,6 +67,12 @@ class ScoringService:
         # LightGBM tahmini ve SHAP katkıları için iş parçacığı sayısı (None: kütüphane
         # varsayılanı, tüm çekirdekler). Demo'da 1: eşzamanlı oturumlar çekirdekleri paylaşır.
         self.num_threads: int | None = None
+        # Demo oturum katmanları için: True (varsayılan) ise özellik hesabı da servisin tek
+        # kilidiyle sırayla yapılır; False ise her katman kendi kilidini kullanır. Ölçüm
+        # (reports/space_olcum.md): özellik hesabı Python'da (GIL) çalıştığı için eşzamanlı
+        # hesap 2 CPU'da 2,2 kat YAVAŞ; sırayla hesap hem daha hızlı hem daha kısa bekletir.
+        # Oturum verileri her iki durumda da kendi katmanında kalır; sonuçlar aynıdır.
+        self.shared_lock = True
 
     def reset(self, until: str | pd.Timestamp | None = None) -> None:
         """Kart geçmişini başlangıç durumuna döndürür. `until` verilirse geçmiş, o ana kadarki
@@ -109,10 +115,12 @@ class ScoringService:
         return feats.iloc[[pos]]
 
     def _lock_for(self, store: CardHistoryStore):
-        """Servisin kendi geçmişi tek kilitle korunur (yerel mod). Kendi kilidi olan bir katman
-        (demo oturumu) kendi kilidini kullanır: oturumlar birbirini beklemez; paylaşılan taban
-        salt-okunurdur."""
-        return self._lock if store is self.store else getattr(store, "lock", self._lock)
+        """Özellik hesabı ve geçmişe ekleme hangi kilitle yapılır. Servisin kendi geçmişi her
+        zaman tek kilitle korunur (yerel mod). Demo oturum katmanı da varsayılan olarak aynı
+        kilidi kullanır (`shared_lock`); kapatılırsa kendi kilidini kullanır."""
+        if store is self.store or self.shared_lock:
+            return self._lock
+        return getattr(store, "lock", self._lock)
 
     def score(self, tx: dict, save: bool = True, store: CardHistoryStore | None = None) -> dict:
         store = self.store if store is None else store
