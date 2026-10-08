@@ -14,7 +14,7 @@ seçimi ve açıklanabilirlik var.
 > [docs/YOL_HARITASI.md](docs/YOL_HARITASI.md)
 
 ## Canlı demo
-**▶ [Gece Nöbeti · canlı demo](https://card-fraud-detection-demo-cur2lbyszzjbdhxkoasns3.streamlit.app)**
+**▶ [Gece Nöbeti · canlı demo](https://card-fraud-detection-demo.streamlit.app)**
 (Streamlit Community Cloud · yayın reposu:
 [card-fraud-detection-demo](https://github.com/TolgaARSLANN/card-fraud-detection-demo))
 

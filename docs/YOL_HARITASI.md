@@ -761,7 +761,7 @@ servisi açılmaz. Space ayrı bir repodur; GitHub reposuna veri ya da model ekl
   - Sonuçlar değişmedi: `make consistency` ve `make space-data` fark 0.
   - Cloud yolunda Streamlit süreci 815 MB → **591 MB**; oturumlarla artış yok.
 - [x] **5.7 Yayın:** Uygulama Streamlit Community Cloud'da yayında:
-  https://card-fraud-detection-demo-cur2lbyszzjbdhxkoasns3.streamlit.app.
+  https://card-fraud-detection-demo.streamlit.app.
   - Yayın reposu: https://github.com/TolgaARSLANN/card-fraud-detection-demo (`make cloud`
     çıktısı; ana repoda veri yok).
   - Canlı doğrulama:
