@@ -10,6 +10,8 @@ Bu repodaki dosyalar oradaki `make cloud` komutuyla üretilir; burada elle deği
 - Proje eğitim ve portföy amaçlıdır; gerçek bir ödeme sisteminde kullanılmaz.
 - Her ziyaretçinin akışı yalnızca kendi oturumunu etkiler. Oturum başına 2.000 işlem sınırı
   vardır; 15 dakika işlem yapılmayan oturum sıfırlanır.
+- **Uygulama 12 saat trafik olmazsa uykuya geçer.** Açılışta **"Yes, get this app back up!"**
+  düğmesine basıp yaklaşık bir dakika bekleyin.
 
 **Veri kaynağı:** [Credit Card Transactions Fraud Detection](https://www.kaggle.com/datasets/kartik2112/fraud-detection)
 (Kaggle, Kartik Shenoy, **CC0: Public Domain**). Veri, Brandon Harris'in

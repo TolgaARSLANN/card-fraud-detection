@@ -1,7 +1,9 @@
 """Gece Nöbeti · Streamlit Community Cloud giriş dosyası.
 
-Cloud'da ortam değişkeni süreç başlamadan verilemez; bu dosya demo modunu, proje kökünü ve
-bellek havuzu sınırını paneli çalıştırmadan önce ayarlar. Paket kurulmaz, src/ yoldan okunur.
+Cloud'da ortam değişkeni süreç başlamadan verilemez; bu dosya demo modunu, proje kökünü,
+oturum sınırını ve bellek havuzu sınırını paneli çalıştırmadan önce ayarlar. Değerler zorla
+atanır (setdefault değil): Cloud'da kök seviyedeki secrets ortam değişkeni olarak gelir ve
+demo modunu kapatmamalı. Paket kurulmaz, src/ yoldan okunur.
 Kaynak: https://github.com/TolgaARSLANN/card-fraud-detection
 """
 
@@ -11,9 +13,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-os.environ.setdefault("DEMO_MODE", "1")
-os.environ.setdefault("CARD_FRAUD_ROOT", str(ROOT))
-os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ["DEMO_MODE"] = "1"
+os.environ["CARD_FRAUD_ROOT"] = str(ROOT)
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["DEMO_MAX_SESSIONS"] = "20"        # Cloud'un kaynakları Docker'dakinden dar
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 

@@ -22,9 +22,9 @@ seçimi ve açıklanabilirlik var.
   sertleştirmesi kodda durur, ama bu sürümde internete açılmaz.
 - Veriler sentetiktir ve kart numaraları takma numaralarla değiştirilmiştir. Her ziyaretçinin
   akışı yalnızca kendi oturumunu etkiler.
-- **Ücretsiz uygulama bir süre ziyaret edilmezse uykuya geçer.** Uyuyan uygulamayı açan ilk
-  ziyaretçi, uygulamanın uyanmasını ve model ile geçmişin yüklenmesini bekler; bu birkaç
-  dakika sürebilir. Sonraki açılışlar hızlıdır.
+- **Uygulama 12 saat trafik olmazsa uykuya geçer.** Uyuyan uygulamayı açan ziyaretçi
+  **"Yes, get this app back up!"** düğmesine basıp yaklaşık bir dakika beklemelidir. Sonraki
+  açılışlar hızlıdır.
 - Ölçümler (açılış, bellek, eşzamanlı oturumlar):
   [reports/space_olcum.md](reports/space_olcum.md)
 
@@ -156,7 +156,7 @@ DEMO_MODE=1 streamlit run src/card_fraud_detection/ui/app.py
 - **Panel:** API'ye gitmeden aynı süreçte skorlar. Model ve yüklenmiş kart geçmişi tüm
   ziyaretçiler için tek kopyadır. Her oturum yalnızca kendi eklediği işlemleri ayrı bir
   katmanda tutar, bu yüzden ziyaretçiler birbirini etkilemez. Oturum başına 2.000 akış
-  işlemi sınırı vardır. Bellekte en fazla 50 oturum tutulur; 15 dakika işlem yapmayan
+  işlemi sınırı vardır. Bellekte en fazla 50 oturum (Streamlit Cloud'da 20) tutulur; 15 dakika işlem yapmayan
   oturum silinir. Kart numarası serbestçe girilemez; maskeli etiketli sentetik kartlardan
   seçilir. Başlangıç anı üç sabit seçenekle sınırlıdır. Üstte "veriler sentetiktir,
   gerçek kart ya da kişisel bilgi girmeyin" notu sürekli görünür ve hata ayrıntıları

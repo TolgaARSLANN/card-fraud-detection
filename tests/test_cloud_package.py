@@ -35,7 +35,8 @@ def test_cloud_package_is_complete_and_clean(tmp_path):
     assert package.verify(out, "cloud") == []
     assert (out / "packages.txt").read_text().split() == ["libgomp1"]
     entry = (out / "streamlit_app.py").read_text(encoding="utf-8")
-    assert 'setdefault("DEMO_MODE", "1")' in entry and "limit_malloc_arenas(2)" in entry
+    assert 'os.environ["DEMO_MODE"] = "1"' in entry and "limit_malloc_arenas(2)" in entry
+    assert ".setdefault(" not in entry
     assert "fastapi" not in (out / "requirements.txt").read_text().lower()
 
 
@@ -47,6 +48,37 @@ def test_cloud_package_keeps_deploy_repo_and_rejects_personal_columns(tmp_path):
     assert (out / ".git" / "HEAD").exists()                  # yayın reposunun geçmişi korunur
     problems = package.verify(out, "cloud")
     assert any("transactions.parquet: sütunlar" in p for p in problems)
+
+
+def test_cloud_entry_forces_demo_mode_over_secrets(tmp_path):
+    """Cloud'da kök seviyedeki secrets ortam değişkeni olarak gelir. DEMO_MODE=0 ya da başka bir
+    proje kökü verilse de giriş dosyası demo modunda, kendi klasöründen ve 20 oturum sınırıyla
+    açılmalı. Gerçek giriş dosyası, gerçek config ve bellek modülü; panel yerine ortamı yazan
+    küçük bir betik çalıştırılır."""
+    import json
+    import os
+    import shutil
+    import subprocess
+
+    src = package.ROOT / "src" / "card_fraud_detection"
+    pkg = tmp_path / "src" / "card_fraud_detection"
+    (pkg / "space").mkdir(parents=True)
+    (pkg / "ui").mkdir()
+    for rel in ["__init__.py", "config.py", "space/__init__.py", "space/memory.py"]:
+        shutil.copy2(src / rel, pkg / rel)
+    (pkg / "ui" / "app.py").write_text(
+        "import json, os\n"
+        "from card_fraud_detection import config\n"
+        "print('ENV' + json.dumps({'demo': config.demo_mode(), 'root': str(config.ROOT),\n"
+        "    'sessions': config.DEMO_MAX_SESSIONS, 'omp': os.environ['OMP_NUM_THREADS']}))\n")
+    shutil.copy2(package.TEMPLATE / "cloud" / "streamlit_app.py", tmp_path / "streamlit_app.py")
+
+    env = {**os.environ, "DEMO_MODE": "0", "DEMO_MAX_SESSIONS": "99", "OMP_NUM_THREADS": "8",
+           "CARD_FRAUD_ROOT": "/baska/yer"}
+    out = subprocess.run([sys.executable, str(tmp_path / "streamlit_app.py")], env=env,
+                         capture_output=True, text=True, check=True)
+    got = json.loads(next(x for x in out.stdout.splitlines() if x.startswith("ENV"))[3:])
+    assert got == {"demo": True, "root": str(tmp_path.resolve()), "sessions": 20, "omp": "1"}
 
 
 @pytest.mark.skipif(not sys.platform.startswith("linux"), reason="glibc yalnızca Linux'ta")

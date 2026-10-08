@@ -78,5 +78,6 @@ DEMO_TRUSTED_PROXY_HOPS = int(os.environ.get("TRUSTED_PROXY_HOPS", "1"))
 DEMO_STREAM_LIMIT = 2_000         # oturum başına canlı akışta skorlanabilecek işlem
 DEMO_ADDED_PER_CARD = 200         # oturum katmanında kart başına eklenen kayıt sınırı
 DEMO_ADDED_TOTAL = 5_000          # oturum katmanında toplam eklenen kayıt sınırı
-DEMO_MAX_SESSIONS = 50            # aynı anda bellekte tutulan panel oturumu
+# Aynı anda bellekte tutulan panel oturumu (Docker/yerel 50; Cloud giriş dosyası 20'ye zorlar)
+DEMO_MAX_SESSIONS = int(os.environ.get("DEMO_MAX_SESSIONS", "50"))
 DEMO_SESSION_TTL = 15 * 60.0      # bu kadar saniye işlem yapmayan oturumun katmanı silinir
