@@ -30,6 +30,18 @@ seçimi ve açıklanabilirlik var.
 - Ölçümler (açılış, bellek, eşzamanlı oturumlar):
   [reports/space_olcum.md](reports/space_olcum.md)
 
+## Ekran görüntüleri
+Görüntüler, canlı demoyla aynı paketten alındı. Paketteki veriler sentetik, kart numaraları
+takma ve maskelidir.
+
+![Başlangıç: ön sayfa, gece payı kadranı ve test dönemi özet sayıları](docs/ekranlar/ekran-baslangic.png)
+
+| Canlı akış | İşlem incele |
+|---|---|
+| ![Canlı akış: 15 Ağustos 2020 gecesinden 200 işlem, saat kadranı ve alarm kuyruğu](docs/ekranlar/ekran-akis.png) | ![İşlem incele: alarm kararı, olasılık, beklenen kayıp ve skoru en çok artıran üç etken](docs/ekranlar/ekran-inceleme.png) |
+| **Eşik ve maliyet** | **Telefon (375 px)** |
+| ![Eşik ve maliyet: inceleme ücreti kaydırıcısı, metrikler ve alarm sayısı–yakalanan tutar eğrisi](docs/ekranlar/ekran-maliyet.png) | <img src="docs/ekranlar/ekran-telefon.png" alt="Telefon görünümü: ön sayfa ve iki satırlı sekme çubuğu" width="260"> |
+
 ## Veri
 [Credit Card Transactions Fraud Detection](https://www.kaggle.com/datasets/kartik2112/fraud-detection)
 (Sparkov simülatörü): ABD'de 999 kart ve 693 satıcı arasında, 2019-01-01 ile 2020-12-31
