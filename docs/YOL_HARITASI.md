@@ -769,8 +769,10 @@ servisi açılmaz. Space ayrı bir repodur; GitHub reposuna veri ya da model ekl
     - İşlem incele: maskeli sentetik kart listesi; alarmda Türkçe ilk 3 neden geldi.
     - Eşik ve maliyet: 2.522 alarm, $45.525 (test raporuyla aynı).
     - Uyarı bandı, alt bilgi ve `lang="tr"` yerinde.
-  - Güncelleme: `make cloud` sonrası `build/cloud` içinde commit ve push; Cloud yeniden
-    kurar.
+  - Güncelleme: `make cloud` sonrası `build/cloud` içinde commit ve push. Cloud kodu çeker,
+    ama yalnızca Python dosyaları değiştiyse süreç yeniden başlamaz (dosya izleyici kapalı);
+    bu durumda Cloud panelinden **Reboot app** gerekir. Günlükte yeni bir "Uvicorn server
+    started" satırı görülmeli.
 - [x] **5.8 Arayüz yenilemeleri** (her sürüm canlı demoya da yansıtıldı)
   - v2 ([`arayuz-v2.md`](tasarim/arayuz-v2.md)): ilk açılan **Başlangıç** sekmesi; amaç,
     karar kuralı, veri ve gizlilik, kullanım talimatları kart yapısında.
