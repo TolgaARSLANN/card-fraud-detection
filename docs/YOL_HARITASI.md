@@ -782,3 +782,8 @@ servisi açılmaz. Space ayrı bir repodur; GitHub reposuna veri ya da model ekl
     Telefonda sekmeler 2×2 dizilir.
   - README'ye beş ekran görüntüsü eklendi ([`docs/ekranlar/`](ekranlar/)). Görüntüler cloud
     paketinden alındı (sentetik veri, takma ve maskeli kart numaraları).
+  - Manşetteki yüzde eki sayının okunuşuna göre seçiliyor (`formatting.tr_ek`; %84'ü,
+    %85'i, %60'ı).
+
+**Proje sürümü:** [v1.0.0 · Gece Nöbeti](https://github.com/TolgaARSLANN/card-fraud-detection/releases/tag/v1.0.0)
+(14 Ekim 2026). Planlanan bütün fazlar tamamlandı.
