@@ -1,12 +1,12 @@
-# Tasarım sistemi v3: docs/tasarim/arayuz-v3.md · ayrıntılı stil: src/card_fraud_detection/ui/theme.py
+# Tasarım sistemi v4 (Gece Bülteni): docs/tasarim/arayuz-v4.md · ayrıntılı stil: src/card_fraud_detection/ui/theme.py
 [theme]
-base = "dark"
-backgroundColor = "#0a0f1c"
-secondaryBackgroundColor = "#101828"
-textColor = "#f1f5f9"
-# Amber "fener" marka ve eylem rengi; kırmızı yalnızca alarm, yeşil yalnızca onay (theme.py)
-primaryColor = "#f5b544"
-borderColor = "#22304a"
+base = "light"
+backgroundColor = "#f4efe4"
+secondaryBackgroundColor = "#ebe4d4"
+textColor = "#16130f"
+# Açık 'gazete kâğıdı' teması; vurgu mürekkep; kırmızı yalnızca alarm, yeşil yalnızca onay (theme.py)
+primaryColor = "#16130f"
+borderColor = "#d3cbbb"
 font = "sans serif"
 
 [client]

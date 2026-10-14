@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -35,7 +36,9 @@ def test_theme_escapes_html_and_dollar():
     assert "<script>" not in out and "&lt;script&gt;" in out
     assert "$" not in out and out.count("&#36;") == 2
     kp = theme.kpis([("Kaçan tutar", "$1.078", "signal"), ("İşlem", "150", None)])
-    assert kp.count('class="gn-kpi"') == 2 and "&#36;1.078" in kp
+    assert len(re.findall(r'class="gn-kpi[ "]', kp)) == 2 and "&#36;1.078" in kp
+    six = theme.kpis([("a", "1", None)] * 6, cols=3)
+    assert six.count("row-start") == 2 and six.count("lower") == 3   # 2 satır × 3 sütun
     assert kp.count("gn-tick") == 1
     assert "--n:2" in kp                                     # varsayılan: hepsi tek satırda
     assert "--n:3" in theme.kpis([("a", "1", None)] * 6, cols=3)
@@ -73,13 +76,14 @@ def test_welcome_screen_cards_and_numbers():
     for text in ["Neyi amaçlıyor?", "Nasıl karar veriyor?", "Veri ve gizlilik", "Canlı akış",
                  "İşlem incele", "Eşik ve maliyet", "Bilmeniz gerekenler"]:
         assert text in demo
-    assert demo.count('class="gn-card"') == 8 and demo.count('class="gn-step"') == 3
+    assert demo.count('class="gn-col"') == 6 and demo.count('class="gn-figure"') == 3
     assert "0,959" in demo and "%98,2" in demo and "&#36;45.525" in demo
     assert "&#36;1.133.325" in demo and "2.000 işlem" in demo and "12 saat" in demo
-    assert "gn-ring" in demo and "%85" in demo and "<em>işlem anında</em>" in demo
+    assert "gn-ring" in demo and "<em>%85&#8217;i</em> gece gelir" in demo
     assert "$" not in demo.replace("&#36;", "")              # Streamlit formül sanmasın
     local = welcome_html(None, demo=False)
-    assert "gn-stat" not in local and "12 saat" not in local  # veri yoksa rakam ve boş sütun yok
+    assert "gn-figure" not in local and "gn-ring" not in local  # veri yoksa rakam uydurulmaz
+    assert "<em>işlem anında</em>" in local and "12 saat" not in local
     assert "Kart numarası, tutar" in local
 
 

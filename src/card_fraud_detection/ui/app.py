@@ -108,17 +108,17 @@ def watch_dial(results: pd.DataFrame) -> go.Figure:
     hover = [f"{ts:%d.%m %H:%M} · {money(a)} · {c}" for ts, a, c in
              zip(t, results["amt"], results["category"], strict=True)]
     fig = go.Figure()
-    # Nöbet saatiyle aynı dil: gece dilimi (22:00-04:00) arka planda amber bir dilim
+    # Nöbet saatiyle aynı dil: gece dilimi (22:00-04:00) arka planda koyu bir dilim
     start, end = theme.NIGHT
     span = (end - start) % 24
     fig.add_trace(go.Barpolar(
         theta=[(start + span / 2) % 24 / 24 * 360], width=[span / 24 * 360],
-        r=[max(len(results), 1) * 1.05], marker=dict(color="rgba(245,181,68,0.08)",
+        r=[max(len(results), 1) * 1.05], marker=dict(color=theme.NIGHT_FILL,
                                                      line=dict(width=0)),
         hoverinfo="skip", name="gece"))
     fig.add_trace(go.Scatterpolar(
         theta=theta[~alert], r=r[~alert], mode="markers", name="onay",
-        marker=dict(size=4, color=theme.CALM, opacity=0.45),
+        marker=dict(size=4, color=theme.CALM, opacity=0.55),
         text=np.array(hover)[~alert], hovertemplate="%{text}<extra>onay</extra>"))
     fig.add_trace(go.Scatterpolar(
         theta=theta[alert], r=r[alert], mode="markers", name="alarm",
@@ -330,7 +330,7 @@ with tab_stream:
             st.plotly_chart(watch_dial(results), width="stretch",
                             config={"displayModeBar": False})
             html(theme.note("Açı: saat · içten dışa: akıştaki sıra · kırmızı: alarm · "
-                            "amber dilim: gece 22:00–04:00"))
+                            "gri dilim: gece 22:00–04:00"))
 
     if not results.empty:
         html(theme.section("Kuyruk", "Alarmlar"))
@@ -428,7 +428,7 @@ with tab_cost:
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=curve["alarm"], y=curve["tutar recall"], mode="lines", name="ücret $1–100",
-            line=dict(color=theme.CALM, width=2), customdata=curve["inceleme ücreti"],
+            line=dict(color=theme.PAPER, width=2.5), customdata=curve["inceleme ücreti"],
             hovertemplate="ücret $%{customdata}<br>alarm %{x:,}<br>yakalanan tutar "
                           "%{y:.1%}<extra></extra>"))
         fig.add_trace(go.Scatter(
