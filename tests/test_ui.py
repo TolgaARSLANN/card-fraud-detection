@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from streamlit.testing.v1 import AppTest
 
+from card_fraud_detection.formatting import tr_ek
 from card_fraud_detection.serving.app import app
 from card_fraud_detection.ui import theme
 from card_fraud_detection.ui.client import ApiClient, ApiError
@@ -85,6 +86,18 @@ def test_welcome_screen_cards_and_numbers():
     assert "gn-figure" not in local and "gn-ring" not in local  # veri yoksa rakam uydurulmaz
     assert "<em>işlem anında</em>" in local and "12 saat" not in local
     assert "Kart numarası, tutar" in local
+    canli = welcome_html({"gece_payi": 0.8402}, demo=True)  # canlı demodaki pay
+    assert "<em>%84&#8217;ü</em> gece gelir" in canli
+
+
+@pytest.mark.parametrize("sayi, ek", [
+    ("1", "i"), ("2", "si"), ("3", "ü"), ("84", "ü"), ("85", "i"), ("6", "sı"), ("7", "si"),
+    ("9", "u"), ("10", "u"), ("20", "si"), ("30", "u"), ("40", "ı"), ("50", "si"),
+    ("60", "ı"), ("70", "i"), ("80", "i"), ("90", "ı"), ("100", "ü"), ("0", "ı"),
+    ("0,5", "i"), ("98,2", "si"), ("12,0", "ı"), ("1.000", "i"), ("1.100", "ü"),
+])
+def test_tr_ek_follows_last_spoken_word(sayi, ek):
+    assert tr_ek(sayi) == ek
 
 
 def test_mask_card():

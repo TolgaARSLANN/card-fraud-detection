@@ -6,7 +6,7 @@ hesaplayıp verir (`summary`). Veri yoksa ilgili rakamlar ve manşetteki pay gö
 
 from __future__ import annotations
 
-from card_fraud_detection.formatting import tr_num
+from card_fraud_detection.formatting import tr_ek, tr_num
 from card_fraud_detection.ui import theme
 
 REPO = "https://github.com/TolgaARSLANN/card-fraud-detection"
@@ -37,7 +37,8 @@ def stats(summary: dict | None) -> list[tuple[str, str]]:
 def _headline(share: float | None) -> str:
     if share is None:
         return "Kart dolandırıcılığını <em>işlem anında</em> yakalamak."
-    return f"Dolandırıcılığın <em>%{round(100 * share)}&#8217;i</em> gece gelir."
+    pay = str(round(100 * share))
+    return f"Dolandırıcılığın <em>%{pay}&#8217;{tr_ek(pay)}</em> gece gelir."
 
 
 def welcome_html(summary: dict | None, demo: bool, stream_limit: int | None = None) -> str:
