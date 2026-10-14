@@ -46,7 +46,7 @@ def welcome_html(summary: dict | None, demo: bool, stream_limit: int | None = No
         "Her kart işlemi, yalnızca o ana kadar bilinen bilgilerle puanlanır ve şüpheli olanlar "
         "inceleme kuyruğuna gönderilir. İşlemlerin yalnızca ~%0,5'i dolandırıcılık olduğu için "
         "amaç, az sayıda alarmla dolandırıcılığın büyük kısmını yakalamak.",
-        stats(summary))
+        stats(summary), night_share=(summary or {}).get("gece_payi"), accent="işlem anında")
 
     about = theme.grid([
         theme.card("target", "Neyi amaçlıyor?",
@@ -102,7 +102,7 @@ def welcome_html(summary: dict | None, demo: bool, stream_limit: int | None = No
                   "Uygulama 12 saat ziyaret edilmezse uyur; açılışta \"Yes, get this app back "
                   "up!\" düğmesine basıp yaklaşık bir dakika bekleyin."]
     good_to_know = theme.grid([
-        theme.card("alert", "Bilmeniz gerekenler", _ul(notes), theme.WARN),
+        theme.card("alert", "Bilmeniz gerekenler", _ul(notes)),
         theme.card("database", "Kaynak ve yöntem",
                    "<p>Yöntem, testler ve tek seferlik test değerlendirmesi kaynak repoda: "
                    f'<a href="{REPO}" target="_blank" rel="noopener">'
@@ -111,12 +111,13 @@ def welcome_html(summary: dict | None, demo: bool, stream_limit: int | None = No
 
     return "".join([
         hero,
-        theme.section("Proje", "Bu panel ne yapıyor?"),
+        theme.section("Proje", "Bu panel ne yapıyor?", index=1),
         about,
         theme.section("Kullanım", "Üç adımda deneyin",
-                      "Üstteki sekmeler sırasıyla bu adımlara karşılık gelir."),
+                      "Üstteki sekmeler sırasıyla bu adımlara karşılık gelir.", index=2),
         usage,
         theme.cta("Başlamak için üstteki <b>Canlı akış</b> sekmesine geçin ve "
                   "<b>Sonraki →</b> düğmesine basın."),
+        theme.section("Notlar", "Sınırlar ve kaynak", index=3),
         good_to_know,
     ])

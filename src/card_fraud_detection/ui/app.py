@@ -108,6 +108,14 @@ def watch_dial(results: pd.DataFrame) -> go.Figure:
     hover = [f"{ts:%d.%m %H:%M} · {money(a)} · {c}" for ts, a, c in
              zip(t, results["amt"], results["category"], strict=True)]
     fig = go.Figure()
+    # Nöbet saatiyle aynı dil: gece dilimi (22:00-04:00) arka planda amber bir dilim
+    start, end = theme.NIGHT
+    span = (end - start) % 24
+    fig.add_trace(go.Barpolar(
+        theta=[(start + span / 2) % 24 / 24 * 360], width=[span / 24 * 360],
+        r=[max(len(results), 1) * 1.05], marker=dict(color="rgba(245,181,68,0.08)",
+                                                     line=dict(width=0)),
+        hoverinfo="skip", name="gece"))
     fig.add_trace(go.Scatterpolar(
         theta=theta[~alert], r=r[~alert], mode="markers", name="onay",
         marker=dict(size=4, color=theme.CALM, opacity=0.45),
@@ -200,8 +208,11 @@ with tab_welcome:
         y_w, p_w = welcome_scores[TARGET].to_numpy(), welcome_scores["p"].to_numpy()
         amt_w = welcome_scores["amt"].to_numpy()
         point_w = review_cost_point(p_w, amt_w, y_w, REVIEW_COST)
+        hour_w = pd.to_datetime(welcome_scores[TIME_COL]).dt.hour.to_numpy()
+        night_w = (hour_w >= theme.NIGHT[0]) | (hour_w < theme.NIGHT[1])
         summary |= {"tutar_recall": point_w["tutar recall"], "maliyet": point_w["maliyet"],
-                    "alarmsiz_maliyet": float(amt_w[y_w == 1].sum())}
+                    "alarmsiz_maliyet": float(amt_w[y_w == 1].sum()),
+                    "gece_payi": float(night_w[y_w == 1].mean()) if (y_w == 1).any() else None}
     html(welcome_html(summary, DEMO, client.stream_limit if DEMO else None))
 
 # --- 1. Canlı akış ---
@@ -318,7 +329,8 @@ with tab_stream:
         if not results.empty:
             st.plotly_chart(watch_dial(results), width="stretch",
                             config={"displayModeBar": False})
-            html(theme.note("Açı: saat · içten dışa: akıştaki sıra · kızıl: alarm"))
+            html(theme.note("Açı: saat · içten dışa: akıştaki sıra · kırmızı: alarm · "
+                            "amber dilim: gece 22:00–04:00"))
 
     if not results.empty:
         html(theme.section("Kuyruk", "Alarmlar"))

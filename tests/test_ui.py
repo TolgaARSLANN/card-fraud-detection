@@ -56,9 +56,19 @@ def test_theme_verdict_accent_follows_decision():
     assert "Alarm" in alarm and "<svg" in alarm and "Onay" in ok and "<svg" in ok
 
 
+def test_night_ring_and_risk_meter():
+    ring = theme.night_ring(0.8468)
+    assert "%85" in ring and "role=\"img\"" in ring and "yüzde 85" in ring
+    assert ring.count("<line") == 24                          # 24 saat çentiği
+    assert "%" not in theme.night_ring(None).split("aria-label")[0]   # rakam uydurulmaz
+    assert theme.risk_meter("orta").count('class="on"') == 2
+    assert "high" in theme.risk_meter("yüksek") and "(3/3)" in theme.risk_meter("yüksek")
+    assert "high" not in theme.risk_meter("düşük")
+
+
 def test_welcome_screen_cards_and_numbers():
     summary = {"pr_auc": 0.95936, "tutar_recall": 0.9821, "maliyet": 45524.94,
-               "alarmsiz_maliyet": 1133325.0}
+               "alarmsiz_maliyet": 1133325.0, "gece_payi": 0.8468}
     demo = welcome_html(summary, demo=True, stream_limit=2000)
     for text in ["Neyi amaçlıyor?", "Nasıl karar veriyor?", "Veri ve gizlilik", "Canlı akış",
                  "İşlem incele", "Eşik ve maliyet", "Bilmeniz gerekenler"]:
@@ -66,6 +76,7 @@ def test_welcome_screen_cards_and_numbers():
     assert demo.count('class="gn-card"') == 8 and demo.count('class="gn-step"') == 3
     assert "0,959" in demo and "%98,2" in demo and "&#36;45.525" in demo
     assert "&#36;1.133.325" in demo and "2.000 işlem" in demo and "12 saat" in demo
+    assert "gn-ring" in demo and "%85" in demo and "<em>işlem anında</em>" in demo
     assert "$" not in demo.replace("&#36;", "")              # Streamlit formül sanmasın
     local = welcome_html(None, demo=False)
     assert "gn-stat" not in local and "12 saat" not in local  # veri yoksa rakam ve boş sütun yok
