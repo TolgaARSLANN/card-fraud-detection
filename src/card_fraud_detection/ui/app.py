@@ -34,6 +34,7 @@ from card_fraud_detection.ui.logic import (
     stream_kpis,
 )
 from card_fraud_detection.ui.prepare import PANEL_SCORES
+from card_fraud_detection.ui.welcome import welcome_html
 
 INPUT = [TIME_COL, "cc_num", "amt", "category", "merchant"]
 
@@ -183,7 +184,25 @@ mast = st.empty()          # sayfa sonunda doldurulur: bu çalıştırmadaki iş
 if DEMO:
     html(theme.demo_notice())
 
-tab_stream, tab_inspect, tab_cost = st.tabs(["Canlı akış", "İşlem incele", "Eşik ve maliyet"])
+tab_welcome, tab_stream, tab_inspect, tab_cost = st.tabs(
+    ["Başlangıç", "Canlı akış", "İşlem incele", "Eşik ve maliyet"])
+
+# --- 0. Başlangıç: amaç, nasıl çalışır, kullanım (rakamlar modelden ve test skorlarından) ---
+
+with tab_welcome:
+    summary: dict = {}
+    try:
+        summary["pr_auc"] = client.model().get("test_pr_auc")
+    except ApiError:
+        pass
+    welcome_scores = load_panel_scores()
+    if welcome_scores is not None:
+        y_w, p_w = welcome_scores[TARGET].to_numpy(), welcome_scores["p"].to_numpy()
+        amt_w = welcome_scores["amt"].to_numpy()
+        point_w = review_cost_point(p_w, amt_w, y_w, REVIEW_COST)
+        summary |= {"tutar_recall": point_w["tutar recall"], "maliyet": point_w["maliyet"],
+                    "alarmsiz_maliyet": float(amt_w[y_w == 1].sum())}
+    html(welcome_html(summary, DEMO, client.stream_limit if DEMO else None))
 
 # --- 1. Canlı akış ---
 

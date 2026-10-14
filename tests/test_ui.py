@@ -19,6 +19,7 @@ from card_fraud_detection.ui.logic import (
     review_cost_point,
     stream_kpis,
 )
+from card_fraud_detection.ui.welcome import welcome_html
 
 APP_PATH = Path(__file__).parents[1] / "src/card_fraud_detection/ui/app.py"
 
@@ -48,8 +49,27 @@ def test_theme_reason_bars_scale_to_strongest():
 
 
 def test_theme_verdict_accent_follows_decision():
-    assert theme.SIGNAL in theme.verdict(True, "%99", "$1.070", "yüksek")
-    assert theme.CALM in theme.verdict(False, "%0", "$0", "düşük")
+    alarm = theme.verdict(True, "%99", "$1.070", "yüksek")
+    ok = theme.verdict(False, "%0", "$0", "düşük")
+    assert theme.SIGNAL in alarm and theme.OK in ok
+    # Anlam yalnızca renkle verilmez: simge ve yazı da var
+    assert "Alarm" in alarm and "<svg" in alarm and "Onay" in ok and "<svg" in ok
+
+
+def test_welcome_screen_cards_and_numbers():
+    summary = {"pr_auc": 0.95936, "tutar_recall": 0.9821, "maliyet": 45524.94,
+               "alarmsiz_maliyet": 1133325.0}
+    demo = welcome_html(summary, demo=True, stream_limit=2000)
+    for text in ["Neyi amaçlıyor?", "Nasıl karar veriyor?", "Veri ve gizlilik", "Canlı akış",
+                 "İşlem incele", "Eşik ve maliyet", "Bilmeniz gerekenler"]:
+        assert text in demo
+    assert demo.count('class="gn-card"') == 8 and demo.count('class="gn-step"') == 3
+    assert "0,959" in demo and "%98,2" in demo and "&#36;45.525" in demo
+    assert "&#36;1.133.325" in demo and "2.000 işlem" in demo and "12 saat" in demo
+    assert "$" not in demo.replace("&#36;", "")              # Streamlit formül sanmasın
+    local = welcome_html(None, demo=False)
+    assert "gn-stat" not in local and "12 saat" not in local  # veri yoksa rakam ve boş sütun yok
+    assert "Kart numarası, tutar" in local
 
 
 def test_mask_card():

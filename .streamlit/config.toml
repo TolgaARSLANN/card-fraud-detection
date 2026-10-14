@@ -1,12 +1,13 @@
-# Tasarım dili: docs/tasarim/gece-nobeti.md · ayrıntılı stil: src/card_fraud_detection/ui/theme.py
+# Tasarım sistemi v2: docs/tasarim/arayuz-v2.md · ayrıntılı stil: src/card_fraud_detection/ui/theme.py
 [theme]
 base = "dark"
-backgroundColor = "#0b101a"
-secondaryBackgroundColor = "#121a28"
-textColor = "#ebe7de"
-# Sinyal rengi (#f05a36) yalnızca alarm içindir; sıradan eylemler sakin mavi
-primaryColor = "#6f8fd1"
-borderColor = "#26324a"
+backgroundColor = "#020617"
+secondaryBackgroundColor = "#0e1223"
+textColor = "#f8fafc"
+# Eylem mavisi; kırmızı yalnızca alarm, yeşil yalnızca onay içindir (theme.py)
+primaryColor = "#2563eb"
+borderColor = "#26314a"
+font = "sans serif"
 
 [client]
 toolbarMode = "minimal"
