@@ -771,3 +771,14 @@ servisi açılmaz. Space ayrı bir repodur; GitHub reposuna veri ya da model ekl
     - Uyarı bandı, alt bilgi ve `lang="tr"` yerinde.
   - Güncelleme: `make cloud` sonrası `build/cloud` içinde commit ve push; Cloud yeniden
     kurar.
+- [x] **5.8 Arayüz yenilemeleri** (her sürüm canlı demoya da yansıtıldı)
+  - v2 ([`arayuz-v2.md`](tasarim/arayuz-v2.md)): ilk açılan **Başlangıç** sekmesi; amaç,
+    karar kuralı, veri ve gizlilik, kullanım talimatları kart yapısında.
+  - v3 ([`arayuz-v3.md`](tasarim/arayuz-v3.md)): koyu "izleme konsolu", amber vurgu.
+  - v4 ([`arayuz-v4.md`](tasarim/arayuz-v4.md)), **"Gece Bülteni"**: açık kâğıt zeminli
+    editoryal gazete ön sayfası (Libre Bodoni + Public Sans + JetBrains Mono). Kırmızı
+    yalnızca alarm, yeşil yalnızca onay için. Manşetteki gece payı veriden hesaplanır
+    (test dönemindeki dolandırıcılığın %84'ü 22:00–04:00 arasında). Karar, eğik bir ALARM/ONAY damgasıyla gösterilir.
+    Telefonda sekmeler 2×2 dizilir.
+  - README'ye beş ekran görüntüsü eklendi ([`docs/ekranlar/`](ekranlar/)). Görüntüler cloud
+    paketinden alındı (sentetik veri, takma ve maskeli kart numaraları).

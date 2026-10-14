@@ -136,9 +136,11 @@ Tam rapor: [reports/test_sonuclari.md](reports/test_sonuclari.md)
   seviyesi ile ilk 3 nedeni döndürür. API, kart geçmişini bellekte tutar ve özellikleri
   eğitimdeki aynı kodla hesaplar. 2.000 gerçek test işleminde eğitimdeki özelliklerle farkın
   sıfır olduğu doğrulandı (`make consistency`).
-- **Panel (Streamlit, "Gece Nöbeti"):** Canlı akış (test dönemi işlemleri sırayla skorlanır,
-  alarm kuyruğu oluşur), İşlem incele (bir işlemin kararı ve nedenleri), Eşik ve maliyet
-  (inceleme ücreti değişirse alarm sayısı ve maliyet nasıl değişir).
+- **Panel (Streamlit, "Gece Nöbeti"):** Başlangıç (projenin amacı, kullanım talimatları ve
+  test dönemi özeti), Canlı akış (test dönemi işlemleri sırayla skorlanır, alarm kuyruğu
+  oluşur), İşlem incele (bir işlemin kararı ve nedenleri), Eşik ve maliyet (inceleme ücreti
+  değişirse alarm sayısı ve maliyet nasıl değişir). Görsel dil:
+  [docs/tasarim/arayuz-v4.md](docs/tasarim/arayuz-v4.md).
 
 ## Kurulum ve Çalıştırma
 Linux, macOS veya WSL üzerinde:
